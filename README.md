@@ -1,6 +1,6 @@
 # Number System Converter & Calculator
 
-A browser-based number system converter and arithmetic calculator for working with binary, octal, decimal, and hexadecimal values. It converts a value among all four representations and can also perform an arithmetic operation (addition, subtraction, multiplication, or division) across the entered inputs, showing the result in every base along with a detailed, step-by-step solution. The application is implemented as a self-contained HTML file with embedded CSS and JavaScript.
+A browser-based number system converter and arithmetic calculator for working with binary, octal, decimal, and hexadecimal values. It converts a value among all four representations and evaluates click-built expressions across the entered inputs, showing the result in every base along with a detailed, step-by-step solution. The application is implemented as a self-contained HTML file with embedded CSS and JavaScript.
 
 ## Features
 
@@ -128,16 +128,25 @@ When a result is clicked:
     Briefly display "Copied" when copying succeeds.
 ```
 
-### Arithmetic operation algorithm
+### Expression evaluation algorithm
 
-The arithmetic calculator reuses the same conversion inputs. Non-empty inputs are referenced in order as `a`, `b`, `c`, and so on. The expression field accepts those variables together with `+`, `-`, `*`, `/`, unary signs, and parentheses. Each value is converted to an exact rational before the expression is evaluated and the result is reported in all four bases.
+The arithmetic calculator reuses the same conversion inputs. Non-empty inputs are referenced in order as `a`, `b`, `c`, and so on. The expression builder creates the expression using buttons, so the user does not need to type operators or parentheses. Each value is converted to an exact rational before the expression is evaluated and the result is reported in all four bases.
 
 ```text
-When an expression is entered:
-    Use a, b, c, and so on to reference the non-empty input rows.
-    Use parentheses to group expressions.
+When an input value changes:
+    Refresh the available variable buttons for the non-empty rows.
+    Recalculate the current expression automatically.
 
-When Calculate is clicked:
+When an input-variable or operator button is clicked:
+    Add its token to the read-only expression display.
+    Enable only buttons that are valid for the current expression state.
+    Recalculate automatically when the expression is complete.
+
+When Backspace or Clear is clicked:
+    Remove the last token or clear the expression.
+    Recalculate automatically.
+
+When an expression is evaluated:
     Collect every non-empty input row in order.
     FOR each collected input:
         Validate the value against its selected base.
@@ -169,15 +178,29 @@ When Calculate is clicked:
                 and the decimal value in its own column.
         Show the final calculation using the decimal values.
 
-    Display the accumulator in bases 2, 8, 10, and 16.
+    Display the result in bases 2, 8, 10, and 16.
 ```
 
 ## Flowchart
 
-![Application flowchart](sample-outputs/flowchart.jpg)
+```mermaid
+flowchart TD
+    A([Open app]) --> B[Enter values and choose their bases]
+    B --> C{Are the values valid?}
+    C -->|No| D[Show input error]
+    D --> B
+    C -->|Yes| E[Convert each value and show all four bases]
+    E --> F[Build an expression with the buttons]
+    F --> G{Expression complete?}
+    G -->|No| F
+    G -->|Yes| H[Evaluate with parentheses and operator precedence]
+    H --> I{Arithmetic error?}
+    I -->|Yes| J[Show arithmetic error]
+    J --> F
+    I -->|No| K[Show expression, solution, and result in all four bases]
+```
 
-
-The `Add Input`, `Remove`, `Clear Values`, and theme controls operate independently of the conversion path. Removing a row uses a brief slide-and-fade animation, and the application always keeps at least three rows. The operation selector and `Calculate` button drive the arithmetic path, which reads the same input rows.
+The `Add Input`, `Remove`, `Clear Values`, and theme controls operate independently of the expression path. Removing a row uses a brief slide-and-fade animation, and the application always keeps at least three rows. Non-empty rows are exposed as variables in order: `a`, `b`, `c`, and so on. The expression builder recalculates automatically after each valid completed expression.
 
 ## Program Implementation
 
@@ -235,14 +258,17 @@ The `validateInput()` function rejects characters that are not legal for the sel
 - `collectOperands()` reads every non-empty row in order, validates it, and stores its exact rational value.
 - `computeRational(a, b, op)` performs one operation on two rational values; addition, subtraction, multiplication, and division are each expressed as exact fraction arithmetic. Division by zero returns a null result that is reported to the user.
 - `reduceRational()` divides the numerator and denominator by their greatest common divisor (`gcd()`) so results stay in lowest terms.
-- The selected operation is applied left to right across all operands, so three or more inputs are chained (for example `a - b - c`).
+- `tokenizeExpression()` recognizes variables, operators, and parentheses while rejecting unsupported characters.
+- `evaluateExpression()` uses recursive-descent parsing: unary signs and parentheses are handled first, multiplication and division next, and addition and subtraction last. Operators at the same precedence are evaluated left to right.
+- `refreshOperandButtons()` and `updateBuilderButtonStates()` provide the click-only variable builder and prevent invalid next tokens.
+- `performArithmetic()` runs automatically after expression-builder and input changes, then renders the expression, solution table, and four-base result tiles.
 - `conversionBreakdown()` builds the positional-notation expansion for a value, for example `(4 x 8^2) + (2 x 8^1) + (1 x 8^0)` with the positional values on the line below. `superscript()` renders the exponents as Unicode superscripts, including negative exponents for fractional digits.
 - The expression and result use the base number itself as a subscript, for example `1011(2) + 123(10) = 134(10)`.
 - `performArithmetic()` coordinates collection, validation, computation, expression rendering, the solution table, and the four-base result tiles.
 
 ### Event handling
 
-The program uses event delegation on the input container. This allows input, base-selection, result-copy, and remove actions to work for rows created after the initial page load. The operation selector and `Calculate` button have their own handlers that read the current input rows when the user calculates.
+The program uses event delegation on the input container. This allows input, base-selection, result-copy, and remove actions to work for rows created after the initial page load. The expression builder uses delegated handlers for variable, operator, parenthesis, Backspace, and Clear buttons. Input and builder changes trigger automatic recalculation.
 
 ## Test Cases
 
@@ -269,18 +295,20 @@ The main UI behavior is covered during normal testing: the page starts with thre
 
 ### Arithmetic test cases
 
-The following cases can be tested by entering the listed values in the input rows, selecting each source base, choosing the operation, and clicking `Calculate`.
+The following cases can be tested by entering the listed values in the input rows, selecting each source base, and building the listed expression with the expression buttons. Results update automatically when the expression is complete.
 
-| Test | Inputs (value @ base) | Operation | Expected decimal result | Expected binary | Expected octal | Expected hexadecimal | Result |
+| Test | Inputs (value @ base) | Expression | Expected decimal result | Expected binary | Expected octal | Expected hexadecimal | Result |
 |---:|---|---|---:|---|---|---|---|
-| A1 | `1011`@2, `123`@10 | Add | `134` | `10000110` | `206` | `86` | Pass; mixed-base addition |
-| A2 | `10`@10, `20`@10, `30`@10 | Add | `60` | `111100` | `74` | `3C` | Pass; chained across three inputs |
-| A3 | `FF`@16, `1`@10, `10`@8 | Subtract | `246` | `11110110` | `366` | `F6` | Pass; left-to-right subtraction |
-| A4 | `2`@10, `1010`@2, `A`@16 | Multiply | `200` | `11001000` | `310` | `C8` | Pass; mixed-base multiplication |
-| A5 | `100`@10, `4`@10, `5`@10 | Divide | `5` | `101` | `5` | `5` | Pass; chained division |
-| A6 | `10`@10, `4`@10 | Divide | `2.5` | `10.1` | `2.4` | `2.8` | Pass; exact fractional result |
-| A7 | `5`@10, `0`@10 | Divide | — | — | — | — | Error shown: cannot divide by zero |
-| A8 | `1011`@2 only | Add | — | — | — | — | Message shown: at least two values required |
+| A1 | `1011`@2, `123`@10 | `a + b` | `134` | `10000110` | `206` | `86` | Pass; mixed-base addition |
+| A2 | `10`@10, `20`@10, `30`@10 | `a + b + c` | `60` | `111100` | `74` | `3C` | Pass; three-input expression |
+| A3 | `FF`@16, `1`@10, `10`@8 | `a - b - c` | `246` | `11110110` | `366` | `F6` | Pass; left-associative subtraction |
+| A4 | `2`@10, `1010`@2, `A`@16 | `a * b * c` | `200` | `11001000` | `310` | `C8` | Pass; mixed-base multiplication |
+| A5 | `100`@10, `4`@10, `5`@10 | `a / b / c` | `5` | `101` | `5` | `5` | Pass; left-associative division |
+| A6 | `10`@10, `4`@10 | `a / b` | `2.5` | `10.1` | `2.4` | `2.8` | Pass; exact fractional result |
+| A7 | `5`@10, `0`@10 | `a / b` | — | — | — | — | Error shown: cannot divide by zero |
+| A8 | `1011`@2 only | `a + b` | — | — | — | — | Error shown: variable `b` has no matching input |
+| A9 | `2`@10, `3`@10, `4`@10 | `(a + b) * c` | `20` | `10100` | `24` | `14` | Pass; parentheses override precedence |
+| A10 | `2`@10, `3`@10, `4`@10 | `a + b * c` | `14` | `1110` | `16` | `E` | Pass; multiplication precedes addition |
 
 The step-by-step solution for each case shows the positional-notation breakdown of every non-decimal input and the final calculation using the converted decimal values.
 
@@ -330,17 +358,17 @@ The screenshot shows long fractional values entered using different source bases
 To use the arithmetic calculator:
 
 1. Enter two or more values in the input rows, each with its own base.
-2. Choose an operation: `Add`, `Subtract`, `Multiply`, or `Divide`.
-3. Click `Calculate`.
-4. Read the expression, the step-by-step solution, and the result shown in all four bases.
+2. Click the variable buttons (`a`, `b`, `c`, and so on) in the desired order.
+3. Click operator and parenthesis buttons to build the expression. Use Backspace or Clear to correct it.
+4. Read the automatically updated expression, step-by-step solution, and result shown in all four bases.
 
 ## Limitations and Notes
 
 - Fractional values are supported using exact rational arithmetic. Collapsed results show up to five fractional digits and use `...` when more digits exist.
 - Clicking a result expands it to the full generated value, up to 32 fractional digits; repeating values end with `...`.
-- The arithmetic calculator applies the selected operation left to right across every non-empty input, so three or more inputs are chained (for example `a - b - c`).
+- The expression evaluator follows standard precedence: parentheses and unary signs, then multiplication and division, then addition and subtraction. Operators at the same precedence are left associative.
 - Arithmetic uses the same exact `BigInt` rational arithmetic as the converter, so results are exact; a repeating result (such as `1 / 3`) is shown to 32 fractional digits ending with `...`.
-- Division by zero is reported as an error and produces no result. At least two valid inputs are required to calculate.
+- Division by zero, malformed expressions, and references to unavailable variables are reported as arithmetic errors and produce no result. At least two valid inputs are required to calculate an expression.
 - Prefixes such as `0b`, `0o`, and `0x` are not accepted because the validator expects digits only, with an optional leading minus sign.
 - Theme selection follows the browser's current color-scheme preference when the page loads; it is not persisted after the page is closed.
 - Clipboard copying depends on browser permission and support for `navigator.clipboard`.
