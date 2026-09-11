@@ -284,16 +284,12 @@ The following cases can be tested by entering the listed values in the input row
 
 | Test | Inputs (value @ base) | Expression | Expected decimal result | Expected binary | Expected octal | Expected hexadecimal | Result |
 |---:|---|---|---:|---|---|---|---|
-| A1 | `1011`@2, `123`@10 | `a + b` | `134` | `10000110` | `206` | `86` | Pass; mixed-base addition |
-| A2 | `10`@10, `20`@10, `30`@10 | `a + b + c` | `60` | `111100` | `74` | `3C` | Pass; three-input expression |
-| A3 | `FF`@16, `1`@10, `10`@8 | `a - b - c` | `246` | `11110110` | `366` | `F6` | Pass; left-associative subtraction |
-| A4 | `2`@10, `1010`@2, `A`@16 | `a * b * c` | `200` | `11001000` | `310` | `C8` | Pass; mixed-base multiplication |
-| A5 | `100`@10, `4`@10, `5`@10 | `a / b / c` | `5` | `101` | `5` | `5` | Pass; left-associative division |
-| A6 | `10`@10, `4`@10 | `a / b` | `2.5` | `10.1` | `2.4` | `2.8` | Pass; exact fractional result |
-| A7 | `5`@10, `0`@10 | `a / b` | — | — | — | — | Error shown: cannot divide by zero |
-| A8 | `1011`@2 only | `a + b` | — | — | — | — | Error shown: variable `b` has no matching input |
-| A9 | `2`@10, `3`@10, `4`@10 | `(a + b) * c` | `20` | `10100` | `24` | `14` | Pass; parentheses override precedence |
-| A10 | `2`@10, `3`@10, `4`@10 | `a + b * c` | `14` | `1110` | `16` | `E` | Pass; multiplication precedes addition |
+| A1 | `10`@10, `20`@10, `30`@10 | `a + b + c` | `60` | `111100` | `74` | `3C` | Pass; three-input expression |
+| A2 | `FF`@16, `1`@10, `10`@8 | `a - b - c` | `246` | `11110110` | `366` | `F6` | Pass; left-associative subtraction |
+| A3 | `2`@10, `1010`@2, `A`@16 | `a * b * c` | `200` | `11001000` | `310` | `C8` | Pass; mixed-base multiplication |
+| A4 | `100`@10, `4`@10, `5`@10 | `a / b / c` | `5` | `101` | `5` | `5` | Pass; left-associative division |
+| A5 | `2`@10, `3`@10, `4`@10 | `(a + b) * c` | `20` | `10100` | `24` | `14` | Pass; parentheses override precedence |
+| A6 | `2`@10, `3`@10, `4`@10 | `a + b * c` | `14` | `1110` | `16` | `E` | Pass; multiplication precedes addition |
 
 The step-by-step solution for each case shows the positional-notation breakdown of every non-decimal input and the final calculation using the converted decimal values.
 
@@ -342,7 +338,7 @@ The screenshot shows long fractional values entered using different source bases
 
 To use the arithmetic calculator:
 
-1. Enter two or more values in the input rows, each with its own base.
+1. Enter three or more values in the input rows, each with its own base.
 2. Click the variable buttons (`a`, `b`, `c`, and so on) in the desired order.
 3. Click operator and parenthesis buttons to build the expression. Use Backspace or Clear to correct it.
 4. Read the automatically updated expression, step-by-step solution, and result shown in all four bases.
@@ -353,7 +349,7 @@ To use the arithmetic calculator:
 - Clicking a result expands it to the full generated value, up to 32 fractional digits; repeating values end with `...`.
 - The expression evaluator follows standard precedence: parentheses and unary signs, then multiplication and division, then addition and subtraction. Operators at the same precedence are left associative.
 - Arithmetic uses the same exact `BigInt` rational arithmetic as the converter, so results are exact; a repeating result (such as `1 / 3`) is shown to 32 fractional digits ending with `...`.
-- Division by zero, malformed expressions, and references to unavailable variables are reported as arithmetic errors and produce no result. At least two valid inputs are required to calculate an expression.
+- Division by zero, malformed expressions, and references to unavailable variables are reported as arithmetic errors and produce no result. At least three valid inputs are required to calculate an expression.
 - Prefixes such as `0b`, `0o`, and `0x` are not accepted because the validator expects digits only, with an optional leading minus sign.
 - Theme selection follows the browser's current color-scheme preference when the page loads; it is not persisted after the page is closed.
 - Clipboard copying depends on browser permission and support for `navigator.clipboard`.
