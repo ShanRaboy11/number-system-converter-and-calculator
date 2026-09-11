@@ -183,22 +183,7 @@ When an expression is evaluated:
 
 ## Flowchart
 
-```mermaid
-flowchart TD
-    A([Open app]) --> B[Enter values and choose their bases]
-    B --> C{Are the values valid?}
-    C -->|No| D[Show input error]
-    D --> B
-    C -->|Yes| E[Convert each value and show all four bases]
-    E --> F[Build an expression with the buttons]
-    F --> G{Expression complete?}
-    G -->|No| F
-    G -->|Yes| H[Evaluate with parentheses and operator precedence]
-    H --> I{Arithmetic error?}
-    I -->|Yes| J[Show arithmetic error]
-    J --> F
-    I -->|No| K[Show expression, solution, and result in all four bases]
-```
+![Number system converter flowchart](sample-outputs/Flowchart.png)
 
 The `Add Input`, `Remove`, `Clear Values`, and theme controls operate independently of the expression path. Removing a row uses a brief slide-and-fade animation, and the application always keeps at least three rows. Non-empty rows are exposed as variables in order: `a`, `b`, `c`, and so on. The expression builder recalculates automatically after each valid completed expression.
 
