@@ -5,7 +5,8 @@ A browser-based number system converter and arithmetic calculator for working wi
 ## Features
 
 - Convert any value among binary, octal, decimal, and hexadecimal in real time.
-- Perform addition, subtraction, multiplication, or division across the inputs, even when they use different bases.
+- Evaluate expressions containing addition, subtraction, multiplication, division, unary signs, and parentheses across the inputs, even when they use different bases.
+- Apply standard operator precedence and left associativity.
 - Mixed-base arithmetic: each input keeps its own base and is converted to a common representation before the operation is applied.
 - Exact arithmetic using `BigInt` rational values, with no floating-point rounding error.
 - A detailed step-by-step solution: a positional-notation breakdown of each conversion to decimal followed by the final calculation.
@@ -129,11 +130,12 @@ When a result is clicked:
 
 ### Arithmetic operation algorithm
 
-The arithmetic calculator reuses the same conversion inputs. It reads every non-empty input, converts each value to an exact rational, applies the selected operation left to right, and reports the result in all four bases.
+The arithmetic calculator reuses the same conversion inputs. Non-empty inputs are referenced in order as `a`, `b`, `c`, and so on. The expression field accepts those variables together with `+`, `-`, `*`, `/`, unary signs, and parentheses. Each value is converted to an exact rational before the expression is evaluated and the result is reported in all four bases.
 
 ```text
-When an operation is selected:
-    Record the chosen operation (+, -, *, or /).
+When an expression is entered:
+    Use a, b, c, and so on to reference the non-empty input rows.
+    Use parentheses to group expressions.
 
 When Calculate is clicked:
     Collect every non-empty input row in order.
@@ -148,18 +150,13 @@ When Calculate is clicked:
         Show a message asking for at least two values.
         STOP.
 
-    Set accumulator = rational of the first input.
-    FOR each remaining input value:
-        Combine accumulator and the next value using the operation:
-            Addition       -> a/b + c/d
-            Subtraction    -> a/b - c/d
-            Multiplication -> a/b * c/d
-            Division       -> a/b / c/d
-        IF the operation is division and the next value is zero:
-            Show a division-by-zero error.
-            STOP.
-        Reduce the result to lowest terms.
-        accumulator = combined result.
+    Tokenize the expression and parse it recursively:
+        Parentheses and unary signs are handled first.
+        Multiplication and division are handled next, left to right.
+        Addition and subtraction are handled last, left to right.
+    IF the expression is malformed, references an empty input, or divides by zero:
+        Show a descriptive arithmetic error.
+        STOP.
 
     Build the expression from the original inputs and their base subscripts.
 
@@ -204,7 +201,7 @@ The interface is contained in `app.html` and includes:
 - Base selector buttons: `BIN`, `OCT`, `DEC`, and `HEX`.
 - Four result fields per row.
 - `Add Input`, `Remove`, and `Clear Values` controls.
-- An operation selector (`Add`, `Subtract`, `Multiply`, `Divide`) and a `Calculate` button.
+- A click-only expression builder with input-variable, operator, parenthesis, Backspace, and Clear buttons.
 - A result panel showing the arithmetic expression, a step-by-step solution table, and the result in all four bases.
 
 ### Validation implementation

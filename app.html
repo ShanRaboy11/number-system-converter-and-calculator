@@ -493,12 +493,6 @@
     flex-wrap: wrap;
   }
   .op-row .op-grid { flex: 1; min-width: 260px; }
-  .op-row .btn-solid {
-    flex-shrink: 0;
-    padding: 0 26px;
-    font-size: 0.95rem;
-  }
-
   .operand-label {
     display: block;
     font-size: 0.67rem;
@@ -509,7 +503,68 @@
     margin-bottom: 7px;
   }
 
-  /* Operation selector: labeled cards (symbol + word) */
+  /* Click-only expression builder */
+  .expression-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 13px;
+    font-size: 1rem;
+    font-family: 'Consolas', 'Courier New', monospace;
+    word-break: break-all;
+  }
+  .expression-input:empty::before {
+    content: "Choose an input below to begin";
+    color: var(--text-muted);
+    font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.85rem;
+  }
+
+  .expression-help {
+    display: block;
+    margin-top: 7px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .builder-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .builder-btn {
+    min-width: 42px;
+    min-height: 38px;
+    padding: 7px 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.95rem;
+  }
+  .builder-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .builder-btn.operator { color: var(--accent); font-weight: 700; }
+  .builder-btn.utility { color: var(--text-muted); font-family: inherit; font-size: 0.78rem; }
+  .builder-btn .builder-label {
+    display: block;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.65rem;
+    line-height: 1.1;
+  }
+
   .op-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -709,7 +764,7 @@
       <p class="section-kicker">Computer Architecture and Organization</p>
       <h2 id="workspace-title">Convert &amp; Calculate.</h2>
     </div>
-    <p>Enter values in any base to see every equivalent representation, then choose an operation to add, subtract, multiply, or divide across them.</p>
+    <p>Enter values in any base, then build an expression with the buttons below to calculate across them.</p>
   </section>
   <div class="toolbar">
     <button class="btn-ghost" id="clearBtn">Clear Values</button>
@@ -726,24 +781,22 @@
   </button>
 
   <div class="op-bar">
-    <span class="operand-label">Operation</span>
+    <span class="operand-label">Expression</span>
     <div class="op-row">
-      <div class="op-grid" id="opSelect" data-op="+">
-        <button type="button" class="op-btn active" data-op="+">
-          <span class="op-sym">+</span><span class="op-word">Add</span>
-        </button>
-        <button type="button" class="op-btn" data-op="-">
-          <span class="op-sym">&minus;</span><span class="op-word">Subtract</span>
-        </button>
-        <button type="button" class="op-btn" data-op="*">
-          <span class="op-sym">&times;</span><span class="op-word">Multiply</span>
-        </button>
-        <button type="button" class="op-btn" data-op="/">
-          <span class="op-sym">&divide;</span><span class="op-word">Divide</span>
-        </button>
-      </div>
-      <button class="btn-solid" id="computeBtn">Calculate</button>
+      <div class="expression-input" id="expressionInput" aria-live="polite"></div>
     </div>
+    <div class="builder-tools" id="operandButtons" aria-label="Input variables"></div>
+    <div class="builder-tools" id="operatorButtons" aria-label="Expression operators">
+      <button type="button" class="builder-btn operator" data-expression="+">+</button>
+      <button type="button" class="builder-btn operator" data-expression="-">&minus;</button>
+      <button type="button" class="builder-btn operator" data-expression="*">&times;</button>
+      <button type="button" class="builder-btn operator" data-expression="/">&divide;</button>
+      <button type="button" class="builder-btn" data-expression="(">(</button>
+      <button type="button" class="builder-btn" data-expression=")">)</button>
+      <button type="button" class="builder-btn utility" data-action="backspace" title="Remove the last expression item">Backspace</button>
+      <button type="button" class="builder-btn utility" data-action="clear-expression">Clear</button>
+    </div>
+    <span class="expression-help">Choose an input, then an operator or parenthesis. The result updates automatically.</span>
   </div>
 
   <div class="arith-error" id="arithError"></div>
@@ -1044,7 +1097,11 @@
   // ---------- Event delegation ----------
   container.addEventListener("input", function (e) {
     const card = e.target.closest(".input-card");
-    if (card) updateRow(card);
+    if (card) {
+      updateRow(card);
+      refreshOperandButtons();
+      performArithmetic();
+    }
   });
 
   container.addEventListener("click", function (e) {
@@ -1091,6 +1148,7 @@
     row.classList.add("card-enter");
     container.appendChild(row);
     renumberCards();
+    refreshOperandButtons();
     row.addEventListener("animationend", function () {
       row.classList.remove("card-enter");
     }, { once: true });
@@ -1099,11 +1157,14 @@
   clearBtn.addEventListener("click", function () {
     container.querySelectorAll(".value-input").forEach(inp => inp.value = "");
     container.querySelectorAll(".input-card").forEach(card => updateRow(card));
+    refreshOperandButtons();
+    performArithmetic();
   });
 
   // ---------- Arithmetic section (operates on the conversion inputs above) ----------
-  const opSelect = document.getElementById("opSelect");
-  const computeBtn = document.getElementById("computeBtn");
+  const expressionInput = document.getElementById("expressionInput");
+  const operandButtons = document.getElementById("operandButtons");
+  const operatorButtons = document.getElementById("operatorButtons");
   const arithError = document.getElementById("arithError");
   const arithOutput = document.getElementById("arithOutput");
   const arithExpression = document.getElementById("arithExpression");
@@ -1111,7 +1172,6 @@
   const arithResults = document.getElementById("arithResults");
 
   const OP_SYMBOL = { "+": "+", "-": "\u2212", "*": "\u00D7", "/": "\u00F7" };
-  const OP_WORD = { "+": "Addition", "-": "Subtraction", "*": "Multiplication", "/": "Division" };
 
   function escapeHtml(str) {
     return str.replace(/[&<>"']/g, function (c) {
@@ -1186,15 +1246,6 @@
     arithOutput.classList.remove("show");
   }
 
-  // Operation selector.
-  opSelect.addEventListener("click", function (e) {
-    const btn = e.target.closest(".op-btn");
-    if (!btn) return;
-    opSelect.querySelectorAll(".op-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    opSelect.dataset.op = btn.dataset.op;
-  });
-
   // Gather every conversion input card that has a value; validate as we go.
   function collectOperands() {
     const operands = [];
@@ -1208,13 +1259,224 @@
       if (!check.valid) {
         return { error: "Input #" + (i + 1) + ": " + check.message };
       }
-      operands.push({ index: i + 1, raw: raw, base: base, rational: baseStringToRational(raw, base) });
+      const symbolIndex = operands.length;
+      if (symbolIndex >= 26) {
+        return { error: "Expressions support a maximum of 26 non-empty inputs (a through z)." };
+      }
+      operands.push({
+        index: i + 1,
+        symbol: String.fromCharCode(97 + symbolIndex),
+        raw: raw,
+        base: base,
+        rational: baseStringToRational(raw, base)
+      });
     }
     return { operands: operands };
   }
 
+  function tokenizeExpression(expression) {
+    const tokens = [];
+    let position = 0;
+    while (position < expression.length) {
+      const character = expression[position];
+      if (/\s/.test(character)) {
+        position++;
+        continue;
+      }
+      if (/[+\-*/()]/.test(character)) {
+        tokens.push({ type: character, value: character });
+        position++;
+        continue;
+      }
+      if (/[A-Za-z]/.test(character)) {
+        const symbol = character.toLowerCase();
+        if (position + 1 < expression.length && /[A-Za-z0-9_]/.test(expression[position + 1])) {
+          throw new Error("Invalid variable near \"" + expression.slice(position, position + 2) + "\". Use single letters such as a or b.");
+        }
+        tokens.push({ type: "variable", value: symbol });
+        position++;
+        continue;
+      }
+      throw new Error("Unexpected character \"" + character + "\" in expression.");
+    }
+    if (tokens.length === 0) throw new Error("Enter an expression to calculate.");
+    return tokens;
+  }
+
+  function evaluateExpression(tokens, operands) {
+    const values = {};
+    operands.forEach(operand => { values[operand.symbol] = operand.rational; });
+    let position = 0;
+
+    function parseExpression() {
+      let value = parseTerm();
+      while (position < tokens.length && (tokens[position].type === "+" || tokens[position].type === "-")) {
+        const operator = tokens[position++].type;
+        const right = parseTerm();
+        value = computeRational(value, right, operator);
+      }
+      return value;
+    }
+
+    function parseTerm() {
+      let value = parseUnary();
+      while (position < tokens.length && (tokens[position].type === "*" || tokens[position].type === "/")) {
+        const operator = tokens[position++].type;
+        const right = parseUnary();
+        value = computeRational(value, right, operator);
+        if (value === null) throw new Error("Cannot divide by zero. Division is undefined.");
+      }
+      return value;
+    }
+
+    function parseUnary() {
+      if (position < tokens.length && (tokens[position].type === "+" || tokens[position].type === "-")) {
+        const operator = tokens[position++].type;
+        const value = parseUnary();
+        return operator === "-" ? { numerator: -value.numerator, denominator: value.denominator } : value;
+      }
+      return parsePrimary();
+    }
+
+    function parsePrimary() {
+      const token = tokens[position++];
+      if (!token) throw new Error("Expression ends unexpectedly.");
+      if (token.type === "variable") {
+        if (!values[token.value]) throw new Error("Variable \"" + token.value + "\" has no matching non-empty input.");
+        return values[token.value];
+      }
+      if (token.type === "(") {
+        const value = parseExpression();
+        if (!tokens[position] || tokens[position].type !== ")") {
+          throw new Error("Missing closing parenthesis.");
+        }
+        position++;
+        return value;
+      }
+      throw new Error("Expected an input variable or opening parenthesis.");
+    }
+
+    const result = parseExpression();
+    if (position < tokens.length) {
+      throw new Error(tokens[position].type === ")" ? "Unexpected closing parenthesis." : "Missing operator in expression.");
+    }
+    return reduceRational(result);
+  }
+
+  function expressionHtml(tokens, operands, useDecimalValues) {
+    const bySymbol = {};
+    operands.forEach(operand => { bySymbol[operand.symbol] = operand; });
+    return tokens.map(token => {
+      if (token.type === "variable") {
+        const operand = bySymbol[token.value];
+        if (!operand) return escapeHtml(token.value);
+        const value = useDecimalValues
+          ? trimDecimal(rationalToBaseString(operand.rational, 10))
+          : tagged(operand.raw, operand.base);
+        return useDecimalValues ? escapeHtml(value) : value;
+      }
+      if (OP_SYMBOL[token.type]) return " " + OP_SYMBOL[token.type] + " ";
+      return token.value;
+    }).join("");
+  }
+
+  function expressionText() {
+    return expressionInput.textContent.trim();
+  }
+
+  function expressionEndsWithValue(text) {
+    return /[A-Za-z)]\s*$/.test(text);
+  }
+
+  function openParenthesisCount(text) {
+    return (text.match(/\(/g) || []).length - (text.match(/\)/g) || []).length;
+  }
+
+  function refreshOperandButtons() {
+    operandButtons.innerHTML = "";
+    const cards = container.querySelectorAll(".input-card");
+    let symbolIndex = 0;
+    cards.forEach(function (card, index) {
+      const raw = card.querySelector(".value-input").value.trim();
+      if (raw === "") return;
+      const symbol = String.fromCharCode(97 + symbolIndex++);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "builder-btn";
+      button.dataset.expression = symbol;
+      button.dataset.invalid = String(!validateInput(raw, parseInt(card.querySelector(".segmented").dataset.base, 10)).valid);
+      button.innerHTML = symbol + '<span class="builder-label">Input #' + (index + 1) + '</span>';
+      operandButtons.appendChild(button);
+    });
+    updateBuilderButtonStates();
+  }
+
+  function updateBuilderButtonStates() {
+    const text = expressionText();
+    const canAddValue = text === "" || !expressionEndsWithValue(text);
+    const canAddOperator = expressionEndsWithValue(text);
+    const canOpenParenthesis = text === "" || !expressionEndsWithValue(text);
+    const canCloseParenthesis = canAddOperator && openParenthesisCount(text) > 0;
+
+    operandButtons.querySelectorAll("[data-expression]").forEach(button => {
+      button.disabled = button.dataset.invalid === "true" || !canAddValue;
+    });
+    operatorButtons.querySelectorAll("[data-expression]").forEach(button => {
+      const token = button.dataset.expression;
+      button.disabled = token === "(" ? !canOpenParenthesis : token === ")" ? !canCloseParenthesis : !canAddOperator;
+    });
+    const backspace = operatorButtons.querySelector('[data-action="backspace"]');
+    const clearExpression = operatorButtons.querySelector('[data-action="clear-expression"]');
+    backspace.disabled = text === "";
+    clearExpression.disabled = text === "";
+  }
+
+  function addExpressionToken(token) {
+    const current = expressionText();
+    if (token === "(") {
+      expressionInput.textContent = current ? current + " (" : "(";
+    } else if (token === ")") {
+      expressionInput.textContent = current + " )";
+    } else if (/[+\-*/]/.test(token)) {
+      expressionInput.textContent = current + " " + token + " ";
+    } else {
+      expressionInput.textContent = current ? current + " " + token : token;
+    }
+    updateBuilderButtonStates();
+    performArithmetic();
+  }
+
+  operatorButtons.addEventListener("click", function (event) {
+    const button = event.target.closest("button");
+    if (!button || button.disabled) return;
+    if (button.dataset.action === "backspace") {
+      expressionInput.textContent = expressionText().replace(/\s*(?:[A-Za-z]|[()]|[+\-*/])\s*$/, "").trim();
+      updateBuilderButtonStates();
+      performArithmetic();
+      return;
+    }
+    if (button.dataset.action === "clear-expression") {
+      expressionInput.textContent = "";
+      updateBuilderButtonStates();
+      performArithmetic();
+      return;
+    }
+    addExpressionToken(button.dataset.expression);
+  });
+
+  operandButtons.addEventListener("click", function (event) {
+    const button = event.target.closest("button");
+    if (button && !button.disabled) addExpressionToken(button.dataset.expression);
+  });
+
   function performArithmetic() {
-    const op = opSelect.dataset.op;
+    const expression = expressionText();
+    if (expression === "") {
+      arithError.textContent = "";
+      arithOutput.classList.remove("show");
+      return;
+    }
+
     const collected = collectOperands();
 
     // Decision structure: surface any invalid input first.
@@ -1228,28 +1490,23 @@
       return;
     }
 
-    // Chain the operation left-to-right across all operands.
-    let acc = operands[0].rational;
-
-    for (let i = 1; i < operands.length; i++) {
-      const next = operands[i];
-      acc = computeRational(acc, next.rational, op);
-      if (acc === null) {
-        showArithError("Cannot divide by zero (Input #" + next.index + " is zero). Division is undefined.");
-        return;
+    let tokens;
+    let result;
+    try {
+      tokens = tokenizeExpression(expression);
+      result = evaluateExpression(tokens, operands);
+    } catch (error) {
+      if (/[+\-*/(]\s*$/.test(expression) || openParenthesisCount(expression) > 0) {
+        showArithError("Complete the expression to see the result.");
+      } else {
+        showArithError(error.message);
       }
+      return;
     }
-
-    const result = acc;
     arithError.textContent = "";
 
-    // Expression using the ORIGINAL input values with base-number subscripts.
-    let exprHtml = "";
-    operands.forEach(function (o, i) {
-      if (i > 0) exprHtml += '<span class="eq">' + OP_SYMBOL[op] + '</span>';
-      exprHtml += tagged(o.raw, o.base);
-    });
-    exprHtml += '<span class="eq">=</span>' + tagged(rationalToBaseString(result, 10), 10);
+    const exprHtml = expressionHtml(tokens, operands, false) +
+      '<span class="eq">=</span>' + tagged(rationalToBaseString(result, 10), 10);
     arithExpression.innerHTML = exprHtml;
 
     // ----- Detailed step-by-step solution -----
@@ -1286,13 +1543,12 @@
       '</table></div>';
 
     // Part 2: the final calculation line, using the converted decimal values.
-    const decimalTerms = operands.map(o => trimDecimal(rationalToBaseString(o.rational, 10)));
     const finalLine =
-      decimalTerms.join(" " + OP_SYMBOL[op] + " ") +
+      expressionHtml(tokens, operands, true) +
       " = <strong>" + escapeHtml(trimDecimal(rationalToBaseString(result, 10))) + "</strong>";
 
     const finalHtml =
-      '<h4 class="sol-title">Final Calculation (' + OP_WORD[op] + ')</h4>' +
+      '<h4 class="sol-title">Final Calculation</h4>' +
       '<div class="sol-final">' + finalLine + '</div>';
 
     arithSolution.innerHTML = tableHtml + finalHtml;
@@ -1309,8 +1565,6 @@
 
     arithOutput.classList.add("show");
   }
-
-  computeBtn.addEventListener("click", performArithmetic);
 
   // Copy / expand behaviour for arithmetic result items (mirrors converter rows)
   arithResults.addEventListener("click", function (e) {
@@ -1334,6 +1588,7 @@
     container.appendChild(createRow());
   }
   renumberCards();
+  refreshOperandButtons();
 })();
 </script>
 
