@@ -69,135 +69,218 @@ The page contains five main areas:
 
 Each populated input produces Binary, Octal, Decimal, and Hexadecimal tiles. Collapsed tiles show up to five fractional digits. Clicking a tile expands it to the generated value, copies it when permitted, and briefly displays `Copied`.
 
-## Conversion Algorithm
+## Algorithm / Pseudocode
 
-Every value is represented as an exact rational object:
+The application converts an input in two stages: the source value is converted to an exact rational value using two `BigInt` values, then that rational value is converted to each target base. The same rational values feed the expression calculator, the complement viewer, and complement subtraction.
 
-```text
-{ numerator: BigInt, denominator: BigInt }
-```
-
-### Source-base conversion
+### Main conversion algorithm
 
 ```text
-Trim the input and separate an optional leading minus sign.
-Split the value into whole and fractional digits.
-Process joined digits from left to right:
-    numerator = numerator * sourceBase + digitValue
-Set denominator = sourceBase ^ fractionalDigitCount.
-Apply the sign to numerator.
+START
+
+Create a minimum of three input rows.
+
+When the user types a value or changes its selected base:
+    Read the input text and selected source base.
+    Remove leading and trailing whitespace.
+
+    IF the input is empty:
+        Clear the error message and all result fields.
+        STOP processing this row.
+
+    Validate the input against the selected base:
+        Binary      -> optional '-' followed by digits 0 or 1
+        Octal       -> optional '-' followed by digits 0 through 7
+        Decimal     -> optional '-' followed by digits 0 through 9
+        Hexadecimal -> optional '-' followed by digits 0 through 9 or A through F
+
+    IF validation fails:
+        Mark the input as invalid.
+        Display the appropriate error message.
+        Clear all result fields.
+        STOP processing this row.
+
+    Convert the valid source string to an exact rational value:
+        Handle a leading '-' separately.
+        Split the input at the radix point.
+        Join the whole and fractional digits.
+        Set numerator = 0.
+        FOR each joined digit from left to right:
+            Convert the digit to its numeric value.
+            numerator = numerator * source base + digit value.
+        Set denominator = source base ^ number of fractional digits.
+        Apply the negative sign to the numerator if necessary.
+
+    For each target base in [2, 8, 10, 16]:
+        Convert the rational value to the target base:
+            Separate the sign and use the absolute numerator.
+            Convert numerator / denominator to the integer part
+            using repeated division and remainders.
+            Set remainder = numerator modulo denominator.
+            WHILE remainder is not zero and fewer than 32 fraction digits exist:
+                Multiply remainder by the target base.
+                The quotient is the next fraction digit.
+                Keep the new remainder after division.
+            Append "..." when the fraction is still repeating after 32 digits.
+            Restore the negative sign if necessary.
+        Display the converted value.
+
+END
 ```
 
-### Target-base conversion
+### Input-row management algorithm
 
 ```text
-Separate the sign and use the absolute numerator.
-Convert the integer part using repeated division and remainders.
-Convert the fractional remainder using repeated multiplication by targetBase.
-Stop after 32 generated fractional digits.
-Append ... when a remainder is still present.
-Restore the sign.
+When Add Input is clicked:
+    Create a new input row.
+    Add it to the page.
+    Renumber every row.
+
+When a Remove button is clicked:
+    IF there are only three rows:
+        Do nothing.
+    ELSE:
+        Remove the selected row.
+        Renumber every row.
+
+When Clear Values is clicked:
+    Empty every input field.
+    Clear every error and result field.
+
+When a result is clicked:
+    Expand the result to its full generated value.
+    Copy the full generated value to the clipboard.
+    Collapse it again if clicked a second time.
+    Briefly display "Copied" when copying succeeds.
 ```
 
-The implementation uses `baseStringToRational()` and `rationalToBaseString()`. `reduceRational()` and `gcd()` keep rational values in lowest terms.
+### Expression evaluation algorithm
 
-## Expression Calculator
-
-Non-empty input rows become variables in order: `a`, `b`, `c`, and so on. The builder prevents invalid next tokens and recalculates after input or builder changes.
-
-Supported operations are addition, subtraction, multiplication, division, unary plus/minus, and parentheses. Evaluation order is:
-
-1. Parentheses and unary signs
-2. Multiplication and division, left to right
-3. Addition and subtraction, left to right
-
-`tokenizeExpression()` recognizes expression tokens and `evaluateExpression()` uses recursive descent. `computeRational()` performs exact operations. Division by zero, invalid expressions, unavailable variables, and incomplete expressions produce errors.
-
-The arithmetic result includes:
-
-- The original expression with base annotations
-- A positional conversion-to-decimal table
-- The final calculation using decimal values
-- Binary, Octal, Decimal, and Hexadecimal result tiles
-
-## Complement Viewer
-
-The complement viewer is independent from subtraction. It processes every active input that is a valid non-negative fixed-point value. Each input is displayed in its own card with two columns: diminished-radix complement on the left and radix complement on the right.
-
-Select Binary, Octal, Decimal, or Hexadecimal with the radix tabs. The selected radix is used to render every active input card.
-
-### Diminished-radix complement
-
-The left column shows each digit operation:
+The arithmetic calculator reuses the same conversion inputs. Non-empty inputs are referenced in order as `a`, `b`, `c`, and so on. The expression builder creates the expression using buttons, so the user does not need to type operators or parentheses. Each value is converted to an exact rational before the expression is evaluated and the result is reported in all four bases.
 
 ```text
-(radix - 1) - digit = complementDigit
+When an input value changes:
+    Refresh the available variable buttons for the non-empty rows.
+    Recalculate the current expression automatically.
+
+When an input-variable or operator button is clicked:
+    Add its token to the read-only expression display.
+    Enable only buttons that are valid for the current expression state.
+    Recalculate automatically when the expression is complete.
+
+When Backspace or Clear is clicked:
+    Remove the last token or clear the expression.
+    Recalculate automatically.
+
+When an expression is evaluated:
+    Collect every non-empty input row in order.
+    FOR each collected input:
+        Validate the value against its selected base.
+        IF validation fails:
+            Show an error naming the input number.
+            STOP.
+        Convert the value to an exact rational (numerator, denominator).
+
+    IF fewer than two valid values were collected:
+        Show a message asking for at least two values.
+        STOP.
+
+    Tokenize the expression and parse it recursively:
+        Parentheses and unary signs are handled first.
+        Multiplication and division are handled next, left to right.
+        Addition and subtraction are handled last, left to right.
+
+    IF the expression is malformed, references an empty input, or divides by zero:
+        Show a descriptive arithmetic error.
+        STOP.
+
+    Build the expression from the original inputs and their base subscripts.
+
+    Build the step-by-step solution:
+        FOR each input:
+            IF it is decimal, note "Already in decimal".
+            ELSE show a positional-notation breakdown:
+                (digit x base^position) + ... on one line,
+                the positional values on the next line,
+                and the decimal value in its own column.
+        Show the final calculation using the decimal values.
+
+    Display the result in bases 2, 8, 10, and 16.
 ```
 
-It then displays the complete diminished-radix complement.
+### Complement calculation algorithm
 
-### Radix complement
-
-The right column shows:
+The complement viewer processes every active input that is a valid non-negative fixed-point value, using the radix chosen by the tab selector. Each input is shown in its own card with the diminished-radix `(r-1)'s` complement on the left and the radix `r's` complement on the right.
 
 ```text
-diminished-radix complement
-Add 1
-Result
+When an input, source base, or radix tab changes:
+    Collect every non-empty, non-negative input for the selected radix.
+    IF any input is negative or invalid:
+        Show the appropriate complement error.
+        STOP.
+
+    FOR each collected input:
+        Represent the value with up to five fractional digits.
+        (Truncate repeating fractions at the fifth digit; do not round.)
+
+        Diminished-radix (r-1)'s complement:
+            FOR each digit of the value:
+                complementDigit = (radix - 1) - digit
+            Join the complement digits to form the (r-1)'s complement.
+
+        Radix (r)'s complement:
+            Take the (r-1)'s complement.
+            Add 1 to its least significant digit.
+            The sum is the r's complement.
+
+        Render both complements in the input's card.
+        (Labels follow the radix: 1's/2's, 7's/8's, 9's/10's, 15's/16's.)
 ```
 
-Labels change with the selected radix. Decimal displays `9's complement` and `10's complement`; hexadecimal displays `15's complement` and `16's complement`.
+### Complement subtraction algorithm
 
-Complement work uses at most five fractional digits. Repeating values are truncated at the fifth digit, not rounded. Values with fewer fractional digits retain their available precision.
-
-## Interactive Complement Subtraction
-
-This module is separate from the per-input complement viewer. The controls select:
-
-- **Minuend X**: the input being reduced.
-- **Subtrahend Y**: the input being subtracted.
-
-The subtraction recalculates whenever an input, source base, radix tab, or selector changes.
-
-### Fixed-width alignment
-
-For selected values `X` and `Y`, the whole-number width is aligned to the larger whole-number digit count in the selected radix. Fractional width is aligned separately to the larger fractional digit count, up to five places. Leading zeroes and trailing fractional zeroes are added before complement calculation and addition, so values such as `10.5` and `2.25` become `10.50` and `02.25`.
-
-### Diminished-radix method
-
-The first method calculates `X + Y_(r-1)'s`. If an end carry is produced, it is added around to the least significant digit. If no end carry is produced, the result is negative and its magnitude is obtained by re-complementing the sum.
-
-### Radix method
-
-The second method calculates `X + Y_r's`. If an end carry is produced, the carry bit is discarded. If no end carry is produced, the result is negative and its magnitude is obtained by re-complementing the sum.
-
-`complementSubtraction(a, b, base, width, fractionWidth)` returns padded fixed-point operands, digit operations, complements, raw sums, carry flags, and final results. The same logic works regardless of which active input is selected as `X` or `Y`.
-
-## Event Flow
+Interactive subtraction is separate from the per-input viewer. The user selects a Minuend `X` and a Subtrahend `Y`; the module computes `X - Y` twice, once by each complement method, and shows the steps.
 
 ```text
-Input or base selector changes:
-    Update the row's four conversion results.
-    Refresh expression variables and arithmetic output.
-    Recalculate every active input's complement cards.
-    Refresh X and Y selector options.
-    Recalculate the selected subtraction.
+When an input, source base, radix tab, or X / Y selector changes:
+    Read the selected Minuend X and Subtrahend Y.
 
-Radix tab changes:
-    Re-render all active input complement cards in that radix.
-    Re-render the selected X - Y subtraction walkthrough in that radix.
-    Truncate repeating fractional representations to five digits for complement work.
+    Fixed-width alignment:
+        Align the whole-number width to the larger whole-number digit count.
+        Align the fractional width to the larger fractional digit count (max five).
+        Pad X and Y with leading zeroes and trailing fractional zeroes.
+        (For example, 10.5 and 2.25 become 10.50 and 02.25.)
+        Set modulus = radix ^ aligned total width.
 
-X or Y selector changes:
-    Recalculate the selected subtraction operands.
+    Diminished-radix method  (compute X + Y_(r-1)'s):
+        Complement each digit of Y: (radix - 1) - digit.
+        Add X to the (r-1)'s complement of Y.
+        IF an end carry is produced:
+            Add the carry around to the least significant digit (result is positive).
+        ELSE:
+            The result is negative; re-complement the sum to get its magnitude.
+
+    Radix method  (compute X + Y_r's):
+        Take the r's complement of Y (the (r-1)'s complement plus 1).
+        Add X to the r's complement of Y.
+        IF an end carry is produced:
+            Discard the carry bit (result is positive).
+        ELSE:
+            The result is negative; re-complement the sum to get its magnitude.
+
+    Render Step 1 (complements of Y), Step 2 (r-1's subtraction),
+    and Step 3 (r's subtraction) with every intermediate value.
 ```
 
-## Program Structure
+## Program Implementation
+
+### File structure
 
 ```text
 number-system-converter/
 ├── app.html
 ├── README.md
+├── flowchart.html
 └── sample-outputs/
     ├── Flowchart.png
     ├── decimal-input.png
@@ -207,27 +290,58 @@ number-system-converter/
     └── long-fractional-output.png
 ```
 
-All application HTML, CSS, and JavaScript are embedded in `app.html`.
+All application HTML, CSS, and JavaScript are embedded in `app.html`. The complete flowchart is available in [flowchart.html](flowchart.html) and is linked from the app header. The interface layout is described in the [User Interface](#user-interface) section above.
 
-The complete Mermaid-aligned flowchart is available in [flowchart.html](flowchart.html) and is linked from the app header. It includes the three application modules, validation branches, complement carry decision, and user loop.
+### Validation implementation
 
+The `BASE_INFO` object defines the accepted pattern for each base:
 
-### Main implementation functions
+```javascript
+const BASE_INFO = {
+    2:  { name: "Binary",      pattern: /^-?(?:[01]+(?:\.[01]*)?|\.[01]+)$/i },
+    8:  { name: "Octal",       pattern: /^-?(?:[0-7]+(?:\.[0-7]*)?|\.[0-7]+)$/i },
+    10: { name: "Decimal",     pattern: /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/i },
+    16: { name: "Hexadecimal", pattern: /^-?(?:[0-9A-Fa-f]+(?:\.[0-9A-Fa-f]*)?|\.[0-9A-Fa-f]+)$/i }
+};
+```
 
-- `baseStringToRational(rawValue, base)`: parses a source value into an exact rational.
-- `rationalToBaseString(rational, base)`: formats a rational in a target base.
-- `validateInput(rawValue, base)`: validates digits and syntax.
-- `updateRow(card)`: updates one input row.
-- `computeRational(a, b, op)`: performs exact rational arithmetic.
-- `collectOperands()`: gathers expression operands.
-- `evaluateExpression(tokens, operands)`: evaluates the expression tree.
-- `fixedPointParts(rational, base)`: converts a value to whole and up-to-five-digit fractional parts for complement work.
-- `fixedPointString(value, base, width, fractionWidth)`: formats aligned fixed-point digit strings.
-- `complementValueData(value, base, width, fractionWidth)`: generates one input's complement data.
-- `complementSubtraction(a, b, base, width, fractionWidth)`: performs fixed-width fixed-point complement subtraction.
-- `renderInputComplements(operands, base)`: renders all active input cards.
-- `renderSubtraction(operands)`: renders the selected X-minus-Y walkthrough.
-- `updateComplements()`: coordinates complement viewer and subtraction updates.
+The `validateInput()` function rejects characters that are not legal for the selected base. Empty input is treated as a cleared row rather than an error.
+
+### Conversion implementation
+
+- `baseStringToRational(rawValue, base)` converts a string from its selected base into an exact `{ numerator, denominator }` rational value.
+- `rationalToBaseString(rational, base)` converts the rational value using integer division and repeated multiplication of the remainder.
+- `BigInt` is used instead of JavaScript `Number`, allowing exact integer and finite-fraction conversion beyond the normal safe integer limit.
+- Results show at most five digits after the radix point in their normal collapsed state.
+- Clicking a result expands it to the full generated value. Repeating output is limited to 32 digits and ends with `...`.
+- The `DIGITS` string, `0123456789ABCDEF`, supplies output symbols for all supported bases.
+- `updateRow()` coordinates validation, conversion, error display, and result rendering.
+
+### Arithmetic implementation
+
+- The arithmetic feature operates on the same conversion input rows, so each operand keeps its own base.
+- `collectOperands()` reads every non-empty row in order, validates it, and stores its exact rational value.
+- `computeRational(a, b, op)` performs one operation on two rational values; addition, subtraction, multiplication, and division are each expressed as exact fraction arithmetic. Division by zero returns a null result that is reported to the user.
+- `reduceRational()` divides the numerator and denominator by their greatest common divisor (`gcd()`) so results stay in lowest terms.
+- `tokenizeExpression()` recognizes variables, operators, and parentheses while rejecting unsupported characters.
+- `evaluateExpression()` uses recursive-descent parsing: unary signs and parentheses are handled first, multiplication and division next, and addition and subtraction last. Operators at the same precedence are evaluated left to right.
+- `refreshOperandButtons()` and `updateBuilderButtonStates()` provide the click-only variable builder and prevent invalid next tokens.
+- `conversionBreakdown()` builds the positional-notation expansion for a value, for example `(4 x 8^2) + (2 x 8^1) + (1 x 8^0)` with the positional values on the line below. `superscript()` renders the exponents as Unicode superscripts, including negative exponents for fractional digits.
+- The expression and result use the base number itself as a subscript, for example `1011(2) + 123(10) = 134(10)`.
+- `performArithmetic()` runs automatically after expression-builder and input changes, then coordinates collection, validation, computation, expression rendering, the solution table, and the four-base result tiles.
+
+### Complement implementation
+
+- `fixedPointParts(rational, base)` converts a value to whole and up-to-five-digit fractional parts for complement work.
+- `fixedPointString(value, base, width, fractionWidth)` formats aligned fixed-point digit strings with leading and trailing zeroes.
+- `complementValueData(value, base, width, fractionWidth)` generates one input's `(r-1)'s` and `r's` complement data.
+- `complementSubtraction(a, b, base, width, fractionWidth)` performs fixed-width fixed-point complement subtraction and returns padded operands, digit operations, complements, raw sums, carry flags, and final results.
+- `renderInputComplements(operands, base)` renders all active input cards; `renderSubtraction(operands)` renders the selected X-minus-Y walkthrough.
+- `updateComplements()` coordinates the complement viewer and subtraction updates.
+
+### Event handling
+
+The program uses event delegation on the input container. This allows input, base-selection, result-copy, and remove actions to work for rows created after the initial page load. The expression builder uses delegated handlers for variable, operator, parenthesis, Backspace, and Clear buttons. Input and builder changes trigger automatic recalculation of the conversion results, arithmetic output, and complement panels.
 
 ## Validation and Error Handling
 
@@ -272,14 +386,16 @@ Invalid examples include `10201` in Binary, `1G` in Hexadecimal, and `811.478` i
 
 ### Complement tests
 
-1. Enter `11`, `5`, and `2` as Decimal inputs and select Decimal. Every active input should receive an individual card with 9's and 10's complements in two columns.
-2. The card for `11` should show `9 - 1 = 8`, 9's complement `88`, and 10's complement `89`.
-3. Enter `10.5` and `2.25`. The Decimal subtraction walkthrough should align them as `10.50` and `02.25`, then produce `08.25` with both methods.
-4. Select Input #2 as `X` and Input #3 as `Y`. Both subtraction methods should calculate `5 - 2 = 3`.
-5. Reverse the selectors to calculate `2 - 5`. Both methods should show a negative result and re-complementing.
-6. Select Hexadecimal. Every active input should show 15's and 16's complements.
-7. Enter a negative value. The complement output should clear and show a validation message.
-8. Enter `0.333333` and `0.1`. The Decimal complement view should use `0.33333` and the subtraction walkthrough should complete without a repeating-representation error.
+| Test | Inputs / setup | Radix | Expected result |
+|---:|---|---|---|
+| C1 | `11`, `5`, `2` | Decimal | Every active input gets its own card with 9's and 10's complements in two columns. |
+| C2 | `11` (from C1) | Decimal | The card for `11` shows `9 - 1 = 8`, 9's complement `88`, and 10's complement `89`. |
+| C3 | `10.5`, `2.25` | Decimal | Subtraction aligns them as `10.50` and `02.25`, then produces `08.25` with both methods. |
+| C4 | `X` = Input #2 (`5`), `Y` = Input #3 (`2`) | Decimal | Both subtraction methods calculate `5 - 2 = 3`. |
+| C5 | `X` = `2`, `Y` = `5` (selectors reversed) | Decimal | Both methods show a negative result obtained by re-complementing. |
+| C6 | `11`, `5`, `2` | Hexadecimal | Every active input shows 15's and 16's complements. |
+| C7 | any negative value | any | Complement output clears and a validation message is shown. |
+| C8 | `0.333333`, `0.1` | Decimal | The view uses `0.33333` (truncated to five digits); subtraction completes without a repeating-representation error. |
 
 ## Sample Outputs
 
@@ -309,12 +425,8 @@ The current complement branch follows the same flowchart rules: select a radix t
 
 ## Limitations and Notes
 
-- Complement operations support non-negative fixed-point values. Whole and fractional digits are aligned with leading and trailing zeroes before calculation.
-- Complement calculations use at most five fractional digits. Repeating representations are truncated at the fifth digit for fixed-point complement work; they are not rounded or rejected.
 - Converter and expression arithmetic support exact fractions, but repeating target-base fractions are limited to 32 generated fractional digits and receive `...`.
-- Collapsed result tiles show at most five fractional digits; clicking expands them to the generated value.
 - Complement width uses the larger whole-number width plus the aligned fractional width of the selected operands.
-- The complement viewer shows all active valid inputs; subtraction uses only selected `X` and `Y`.
 - The theme follows the browser's color-scheme preference when the page loads and is not persisted.
 - Clipboard copying depends on browser permission and Clipboard API support.
 - The application uses client-side JavaScript only and has no server-side persistence.
