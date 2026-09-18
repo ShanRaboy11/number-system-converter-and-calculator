@@ -729,6 +729,60 @@
   /* Roomier result tiles in the arithmetic panel only */
   #arithResults { margin-top: 12px; }
 
+  /* Fixed-width complement arithmetic panel */
+  .complement-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-top: 18px;
+    backdrop-filter: blur(5px);
+  }
+  .complement-intro {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: -6px 0 16px;
+  }
+  .complement-error {
+    color: var(--error);
+    font-size: 0.82rem;
+    min-height: 18px;
+    margin-top: 12px;
+  }
+  .complement-table-wrap { overflow-x: auto; }
+  .complement-table {
+    width: 100%;
+    min-width: 690px;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .complement-table th {
+    padding: 10px 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .complement-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .complement-table tbody tr:last-child td { border-bottom: none; }
+  .complement-table .base-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .complement-value {
+    color: var(--text);
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-weight: 700;
+    word-break: break-all;
+  }
+  .complement-note { color: var(--text-muted); font-size: 0.76rem; margin: 14px 0 0; }
+
   @media (max-width: 680px) {
     header { padding: 25px 18px 18px; flex-wrap: wrap; gap: 22px; }
     .header-actions { width: 100%; justify-content: space-between; }
@@ -828,6 +882,29 @@
       </div>
     </div>
   </div>
+
+  <section class="complement-card" aria-labelledby="complement-title">
+    <div class="output-heading" id="complement-title">Complements &amp; Subtraction</div>
+    <p class="complement-intro">Uses the first two populated inputs as A &minus; B. Results use the widest required digit width in each number system; carries follow fixed-width complement arithmetic.</p>
+    <div class="complement-table-wrap">
+      <table class="complement-table">
+        <thead>
+          <tr>
+            <th>Number system</th>
+            <th>A</th>
+            <th>B</th>
+            <th>1's complement of B</th>
+            <th>2's complement of B</th>
+            <th>1's subtraction</th>
+            <th>2's subtraction</th>
+          </tr>
+        </thead>
+        <tbody id="complementResults"></tbody>
+      </table>
+    </div>
+    <div class="complement-error" id="complementError" aria-live="polite"></div>
+    <p class="complement-note">For octal, decimal, and hexadecimal, the same method is generalized as (base &minus; 1)'s and base's complement. Binary values are the standard 1's and 2's complements.</p>
+  </section>
 </main>
 
 
@@ -1101,6 +1178,7 @@
       updateRow(card);
       refreshOperandButtons();
       performArithmetic();
+      updateComplements();
     }
   });
 
@@ -1112,6 +1190,7 @@
       segBtn.classList.add("active");
       segmented.dataset.base = segBtn.dataset.base;
       updateRow(segBtn.closest(".input-card"));
+      updateComplements();
       return;
     }
 
@@ -1123,6 +1202,7 @@
       window.setTimeout(function () {
         card.remove();
         renumberCards();
+        updateComplements();
       }, 240);
       return;
     }
@@ -1149,6 +1229,7 @@
     container.appendChild(row);
     renumberCards();
     refreshOperandButtons();
+    updateComplements();
     row.addEventListener("animationend", function () {
       row.classList.remove("card-enter");
     }, { once: true });
@@ -1159,6 +1240,7 @@
     container.querySelectorAll(".input-card").forEach(card => updateRow(card));
     refreshOperandButtons();
     performArithmetic();
+    updateComplements();
   });
 
   // ---------- Arithmetic section (operates on the conversion inputs above) ----------
@@ -1170,6 +1252,9 @@
   const arithExpression = document.getElementById("arithExpression");
   const arithSolution = document.getElementById("arithSolution");
   const arithResults = document.getElementById("arithResults");
+  const complementResults = document.getElementById("complementResults");
+  const complementError = document.getElementById("complementError");
+  const COMPLEMENT_BASES = [2, 8, 10, 16];
 
   const OP_SYMBOL = { "+": "+", "-": "\u2212", "*": "\u00D7", "/": "\u00F7" };
 
@@ -1244,6 +1329,83 @@
   function showArithError(msg) {
     arithError.textContent = msg;
     arithOutput.classList.remove("show");
+  }
+
+  function bigintToBaseDigits(value, base, width) {
+    return value.toString(base).toUpperCase().padStart(width, "0");
+  }
+
+  function complementSubtraction(a, b, base, width) {
+    const modulus = BigInt(base) ** BigInt(width);
+    const oneComplement = modulus - 1n - b;
+    const twoComplement = modulus - b;
+    const oneSum = a + oneComplement;
+    const oneHasCarry = oneSum >= modulus;
+    const oneRaw = oneHasCarry ? oneSum - modulus + 1n : oneSum;
+    const twoSum = a + twoComplement;
+    const twoHasCarry = twoSum >= modulus;
+    const twoRaw = twoSum % modulus;
+    const difference = a - b;
+
+    function signedOutput(raw, hasCarry, isOnesComplement) {
+      if (difference >= 0n) return bigintToBaseDigits(raw, base, width);
+      const magnitude = isOnesComplement && !hasCarry
+        ? modulus - 1n - raw
+        : modulus - raw;
+      return "-" + bigintToBaseDigits(magnitude, base, width);
+    }
+
+    return {
+      oneComplement: bigintToBaseDigits(oneComplement, base, width),
+      twoComplement: bigintToBaseDigits(twoComplement, base, width),
+      oneResult: signedOutput(oneRaw, oneHasCarry, true),
+      twoResult: signedOutput(twoRaw, twoHasCarry, false)
+    };
+  }
+
+  function updateComplements() {
+    const operands = [];
+    const cards = container.querySelectorAll(".input-card");
+    for (let i = 0; i < cards.length && operands.length < 2; i++) {
+      const card = cards[i];
+      const raw = card.querySelector(".value-input").value.trim();
+      if (raw === "") continue;
+      const base = parseInt(card.querySelector(".segmented").dataset.base, 10);
+      const validation = validateInput(raw, base);
+      if (!validation.valid || raw.includes(".") || raw.startsWith("-")) {
+        complementResults.innerHTML = "";
+        complementError.textContent = validation.valid
+          ? "Complement subtraction requires non-negative whole numbers in the first two populated inputs."
+          : "Input #" + (i + 1) + ": " + validation.message;
+        return;
+      }
+      operands.push({ value: baseStringToRational(raw, base).numerator });
+    }
+
+    if (operands.length < 2) {
+      complementResults.innerHTML = "";
+      complementError.textContent = "Enter two non-negative whole numbers to calculate complements and A - B.";
+      return;
+    }
+
+    complementResults.innerHTML = COMPLEMENT_BASES.map(function (targetBase) {
+      const a = operands[0].value;
+      const b = operands[1].value;
+      const aInTarget = baseStringToRational(rationalToBaseString({ numerator: a, denominator: 1n }, targetBase), targetBase).numerator;
+      const bInTarget = baseStringToRational(rationalToBaseString({ numerator: b, denominator: 1n }, targetBase), targetBase).numerator;
+      const width = Math.max(1, aInTarget.toString(targetBase).length, bInTarget.toString(targetBase).length);
+      const result = complementSubtraction(aInTarget, bInTarget, targetBase, width);
+      return "<tr>" +
+        '<td class="base-cell">' + BASE_INFO[targetBase].name + " (base " + targetBase + ")</td>" +
+        '<td class="complement-value">' + bigintToBaseDigits(aInTarget, targetBase, width) + "</td>" +
+        '<td class="complement-value">' + bigintToBaseDigits(bInTarget, targetBase, width) + "</td>" +
+        '<td class="complement-value">' + result.oneComplement + "</td>" +
+        '<td class="complement-value">' + result.twoComplement + "</td>" +
+        '<td class="complement-value">' + result.oneResult + "</td>" +
+        '<td class="complement-value">' + result.twoResult + "</td>" +
+        "</tr>";
+    }).join("");
+    complementError.textContent = "";
   }
 
   // Gather every conversion input card that has a value; validate as we go.
@@ -1589,6 +1751,7 @@
   }
   renumberCards();
   refreshOperandButtons();
+  updateComplements();
 })();
 </script>
 

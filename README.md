@@ -12,6 +12,8 @@ A browser-based number system converter and arithmetic calculator for working wi
 - A detailed step-by-step solution: a positional-notation breakdown of each conversion to decimal followed by the final calculation.
 - The arithmetic result is displayed in all four number systems.
 - Clear handling of invalid inputs and division by zero.
+- Calculate 1's and 2's complements for the first two populated inputs in binary, octal, decimal, and hexadecimal.
+- Perform fixed-width subtraction using both complements, including end-around carry for 1's-complement subtraction.
 
 ## System Requirements
 
@@ -179,6 +181,16 @@ When an expression is evaluated:
         Show the final calculation using the decimal values.
 
     Display the result in bases 2, 8, 10, and 16.
+
+When the complement panel is updated:
+    Read the first two non-empty inputs as A and B.
+    Reject invalid, negative, or fractional values because complement arithmetic uses fixed-width whole numbers.
+    Convert A and B to each target base and choose the widest required digit width.
+    Calculate the (base - 1)'s complement and base's complement of B.
+    Add each complement to A:
+        For (base - 1)'s complement, add a carry back into the least significant digit.
+        For base's complement, discard the final carry.
+    Display both subtraction results in every supported number system.
 ```
 
 ## Flowchart
@@ -211,6 +223,7 @@ The interface is contained in `app.html` and includes:
 - `Add Input`, `Remove`, and `Clear Values` controls.
 - A click-only expression builder with input-variable, operator, parenthesis, Backspace, and Clear buttons.
 - A result panel showing the arithmetic expression, a step-by-step solution table, and the result in all four bases.
+- A complements and subtraction panel showing 1's and 2's complements for A - B across all four bases.
 
 ### Validation implementation
 
@@ -293,6 +306,10 @@ The following cases can be tested by entering the listed values in the input row
 
 The step-by-step solution for each case shows the positional-notation breakdown of every non-decimal input and the final calculation using the converted decimal values.
 
+### Complement and subtraction test cases
+
+The complement panel uses the first two populated inputs as A and B. For `5` and `3` in decimal, the binary row uses width 3: `A = 101`, `B = 011`, 1's complement of B is `100`, and 2's complement of B is `101`. Both complement subtraction columns produce `010` (`2`). Reversing the inputs to `3` and `5` produces `-010` (`-2`) in the binary row and `-2` in the other rows.
+
 ## Sample Output
 
 The following screenshots show the application's submitted sample outputs.
@@ -342,6 +359,12 @@ To use the arithmetic calculator:
 2. Click the variable buttons (`a`, `b`, `c`, and so on) in the desired order.
 3. Click operator and parenthesis buttons to build the expression. Use Backspace or Clear to correct it.
 4. Read the automatically updated expression, step-by-step solution, and result shown in all four bases.
+
+To use complements and complement subtraction:
+
+1. Enter two non-negative whole numbers in the first two populated input rows.
+2. Select the source base for each input if needed.
+3. Read the 1's complement, 2's complement, and A - B results in every supported base.
 
 ## Limitations and Notes
 
