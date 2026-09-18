@@ -443,6 +443,8 @@
   .student-meta span { display: block; color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; }
   .student-meta strong { display: block; margin-top: 3px; font-size: 0.9rem; font-weight: 700; }
   .header-actions { display: flex; align-items: center; gap: 12px; }
+  .flowchart-link { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); display: inline-flex; font-size: 0.78rem; font-weight: 700; min-height: 40px; padding: 0 12px; text-decoration: none; }
+  .flowchart-link:hover { border-color: var(--accent); color: var(--accent); }
 
   main { max-width: 1080px; padding: 0 28px 52px; }
   .intro-band {
@@ -919,6 +921,7 @@
       <div><span>Name</span><strong>Shan Michael V. Raboy</strong></div>
       <div><span>Course</span><strong>CPE463 - H2</strong></div>
     </div>
+    <a class="flowchart-link" href="flowchart.html">View Flowchart</a>
     <button class="theme-toggle" id="themeToggle" title="Toggle light / dark mode" aria-label="Toggle light / dark mode">
       <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
     </button>

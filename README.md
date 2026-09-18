@@ -15,14 +15,14 @@ The application is implemented in [app.html](app.html). It requires no server, p
 - Evaluate addition, subtraction, multiplication, division, unary signs, and parentheses with standard precedence.
 - Support mixed-base expressions while preserving each input's original base.
 - Show positional conversion breakdowns and final arithmetic calculations.
-- Calculate radix-specific complements for every active non-negative whole-number input:
+- Calculate radix-specific complements for every active non-negative fixed-point input:
   - Binary: 1's and 2's complements
   - Octal: 7's and 8's complements
   - Decimal: 9's and 10's complements
   - Hexadecimal: 15's and 16's complements
 - Provide radix tabs for viewing complement cards in one selected base at a time.
 - Provide Minuend `X` and Subtrahend `Y` selectors for complement subtraction.
-- Show diminished-radix and radix subtraction methods, including carry handling and negative re-complementing.
+- Show diminished-radix and radix subtraction methods, including carry handling, negative re-complementing, and radix-point alignment.
 - Add and remove input rows while keeping at least three rows available.
 - Clear all input values with one control.
 - Switch between light and dark themes.
@@ -45,7 +45,7 @@ Open `app.html` directly in a browser. No build command or development server is
 
 Converter inputs may contain an optional leading minus sign and one radix point. Examples include `10.5`, `1010.1`, `2A.8`, `10.`, and `.5`. Leading and trailing spaces are removed before validation.
 
-Complement calculations accept non-negative integer and fractional values. Complement calculations use the first five fractional digits; repeating values are truncated at the fifth digit instead of being rejected. Negative values remain supported by the converter and expression calculator but are rejected by the complement module because complement subtraction is defined here for non-negative fixed-point operands.
+Complement calculations accept non-negative integer and fractional values. They use the first five fractional digits; repeating values are truncated at the fifth digit instead of being rejected. This five-digit rule applies only to the complement module; the converter and expression calculator retain their exact rational values. Negative values remain supported by the converter and expression calculator but are rejected by the complement module because complement subtraction is defined here for non-negative fixed-point operands.
 
 ## User Interface
 
@@ -122,9 +122,9 @@ The arithmetic result includes:
 
 ## Complement Viewer
 
-The complement viewer is independent from subtraction. It processes every active input that is a valid non-negative whole number.
+The complement viewer is independent from subtraction. It processes every active input that is a valid non-negative fixed-point value. Each input is displayed in its own card with two columns: diminished-radix complement on the left and radix complement on the right.
 
-Select Binary, Octal, Decimal, or Hexadecimal with the radix tabs. Each active input receives a card with two columns.
+Select Binary, Octal, Decimal, or Hexadecimal with the radix tabs. The selected radix is used to render every active input card.
 
 ### Diminished-radix complement
 
@@ -148,6 +148,8 @@ Result
 
 Labels change with the selected radix. Decimal displays `9's complement` and `10's complement`; hexadecimal displays `15's complement` and `16's complement`.
 
+Complement work uses at most five fractional digits. Repeating values are truncated at the fifth digit, not rounded. Values with fewer fractional digits retain their available precision.
+
 ## Interactive Complement Subtraction
 
 This module is separate from the per-input complement viewer. The controls select:
@@ -159,7 +161,7 @@ The subtraction recalculates whenever an input, source base, radix tab, or selec
 
 ### Fixed-width alignment
 
-For selected values `X` and `Y`, the width is the larger digit count in the selected radix. Both values receive leading zeroes before complement calculation and addition.
+For selected values `X` and `Y`, the whole-number width is aligned to the larger whole-number digit count in the selected radix. Fractional width is aligned separately to the larger fractional digit count, up to five places. Leading zeroes and trailing fractional zeroes are added before complement calculation and addition, so values such as `10.5` and `2.25` become `10.50` and `02.25`.
 
 ### Diminished-radix method
 
@@ -169,7 +171,7 @@ The first method calculates `X + Y_(r-1)'s`. If an end carry is produced, it is 
 
 The second method calculates `X + Y_r's`. If an end carry is produced, the carry bit is discarded. If no end carry is produced, the result is negative and its magnitude is obtained by re-complementing the sum.
 
-`complementSubtraction(a, b, base, width)` returns padded operands, digit operations, complements, raw sums, carry flags, and final results. The same fixed-width logic works regardless of which active input is selected as `X` or `Y`.
+`complementSubtraction(a, b, base, width, fractionWidth)` returns padded fixed-point operands, digit operations, complements, raw sums, carry flags, and final results. The same logic works regardless of which active input is selected as `X` or `Y`.
 
 ## Event Flow
 
@@ -184,6 +186,7 @@ Input or base selector changes:
 Radix tab changes:
     Re-render all active input complement cards in that radix.
     Re-render the selected X - Y subtraction walkthrough in that radix.
+    Truncate repeating fractional representations to five digits for complement work.
 
 X or Y selector changes:
     Recalculate the selected subtraction operands.
@@ -206,6 +209,9 @@ number-system-converter/
 
 All application HTML, CSS, and JavaScript are embedded in `app.html`.
 
+The complete Mermaid-aligned flowchart is available in [flowchart.html](flowchart.html) and is linked from the app header. It includes the three application modules, validation branches, complement carry decision, and user loop.
+
+
 ### Main implementation functions
 
 - `baseStringToRational(rawValue, base)`: parses a source value into an exact rational.
@@ -215,8 +221,10 @@ All application HTML, CSS, and JavaScript are embedded in `app.html`.
 - `computeRational(a, b, op)`: performs exact rational arithmetic.
 - `collectOperands()`: gathers expression operands.
 - `evaluateExpression(tokens, operands)`: evaluates the expression tree.
-- `complementValueData(value, base, width)`: generates one input's complement data.
-- `complementSubtraction(a, b, base, width)`: performs fixed-width complement subtraction.
+- `fixedPointParts(rational, base)`: converts a value to whole and up-to-five-digit fractional parts for complement work.
+- `fixedPointString(value, base, width, fractionWidth)`: formats aligned fixed-point digit strings.
+- `complementValueData(value, base, width, fractionWidth)`: generates one input's complement data.
+- `complementSubtraction(a, b, base, width, fractionWidth)`: performs fixed-width fixed-point complement subtraction.
 - `renderInputComplements(operands, base)`: renders all active input cards.
 - `renderSubtraction(operands)`: renders the selected X-minus-Y walkthrough.
 - `updateComplements()`: coordinates complement viewer and subtraction updates.
@@ -226,7 +234,8 @@ All application HTML, CSS, and JavaScript are embedded in `app.html`.
 - Empty converter inputs are treated as cleared rows.
 - Invalid digits show a base-specific message and clear that row's results.
 - Converter values may be negative or fractional.
-- Complement inputs must be non-negative integers or finite fractions in the selected radix.
+- Complement inputs must be non-negative integers or fractions in the selected radix.
+- Complement fractional precision is limited to five digits after the radix point; repeating values are truncated rather than rejected.
 - Invalid complement input clears both complement output areas until valid input is available.
 - The arithmetic calculator reports malformed expressions, missing variables, incomplete expressions, and division by zero.
 - At least two non-empty inputs are needed for an expression or complement subtraction.
@@ -270,10 +279,9 @@ Invalid examples include `10201` in Binary, `1G` in Hexadecimal, and `811.478` i
 5. Reverse the selectors to calculate `2 - 5`. Both methods should show a negative result and re-complementing.
 6. Select Hexadecimal. Every active input should show 15's and 16's complements.
 7. Enter a negative value. The complement output should clear and show a validation message.
+8. Enter `0.333333` and `0.1`. The Decimal complement view should use `0.33333` and the subtraction walkthrough should complete without a repeating-representation error.
 
 ## Sample Outputs
-
-![Number system converter flowchart](sample-outputs/Flowchart.png)
 
 Existing converter samples:
 
@@ -283,7 +291,11 @@ Existing converter samples:
 - [Invalid input](sample-outputs/invalid-input.png)
 - [Long fractional output](sample-outputs/long-fractional-output.png)
 
-These samples document the converter views. The current complement interface additionally includes radix tabs, per-input complement cards, and interactive X/Y subtraction controls.
+The application flowchart is shown below. It covers input validation, number-system conversion, PEMDAS expression evaluation, and arithmetic error handling. The complement workflow is documented immediately after the image because the original submitted PNG predates the complement feature.
+
+![Number system converter flowchart](sample-outputs/Flowchart.png)
+
+The current complement branch follows the same flowchart rules: select a radix tab, display each active input's `(r-1)` and `r` complements, select Minuend `X` and Subtrahend `Y`, align fixed-point digits to five fractional places, then process diminished-radix and radix subtraction with carry or negative re-complement handling. Standard symbols are used conceptually: terminators for start/end, parallelograms for input/output, rectangles for processes, and diamonds for decisions.
 
 ## How to Run
 
@@ -298,10 +310,10 @@ These samples document the converter views. The current complement interface add
 ## Limitations and Notes
 
 - Complement operations support non-negative fixed-point values. Whole and fractional digits are aligned with leading and trailing zeroes before calculation.
-- Complement calculations use at most five fractional digits. Repeating representations are truncated at the fifth digit for fixed-point complement work; they are not rounded.
+- Complement calculations use at most five fractional digits. Repeating representations are truncated at the fifth digit for fixed-point complement work; they are not rounded or rejected.
 - Converter and expression arithmetic support exact fractions, but repeating target-base fractions are limited to 32 generated fractional digits and receive `...`.
 - Collapsed result tiles show at most five fractional digits; clicking expands them to the generated value.
-- Complement width is based on the longest selected operand in the selected radix.
+- Complement width uses the larger whole-number width plus the aligned fractional width of the selected operands.
 - The complement viewer shows all active valid inputs; subtraction uses only selected `X` and `Y`.
 - The theme follows the browser's color-scheme preference when the page loads and is not persisted.
 - Clipboard copying depends on browser permission and Clipboard API support.

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number System Converter Flowchart</title>
+<style>
+  /* ---------- Theme tokens (unchanged) ---------- */
+  :root {
+    --bg:#edf1ee; --surface:#fff; --border:#cbd8d1; --text:#192823; --muted:#607169;
+    --accent:#147d68; --soft:#e1f2ec; --error:#f9e6e3; --error-text:#a9322a;
+    --shadow:0 6px 16px rgba(26,50,42,.08);
+    --yes:#238653; --no:#b7352c; --line:#147d68;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:28px 18px 56px; color:var(--text);
+    background-color:var(--bg);
+    background-image:linear-gradient(rgba(20,125,104,.05) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(20,125,104,.05) 1px,transparent 1px);
+    background-size:28px 28px;
+    font-family:"Trebuchet MS","Segoe UI",sans-serif;
+  }
+  header, main { max-width:900px; margin:0 auto; }
+  header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+  h1 { margin:0; font-family:Georgia,"Times New Roman",serif; font-size:clamp(1.7rem,4vw,2.5rem); font-weight:400; }
+  header p { margin:8px 0 0; color:var(--muted); font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; }
+  .back { color:var(--muted); border:1px solid var(--border); border-radius:6px; padding:10px 13px; text-decoration:none; font-size:.8rem; font-weight:700; white-space:nowrap; }
+  .back:hover { border-color:var(--accent); color:var(--accent); }
+  .intro { margin-top:24px; padding:17px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); color:var(--muted); line-height:1.5; }
+
+  /* ---------- Legend ---------- */
+  .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 18px; margin:20px 0; color:var(--muted); font-size:.72rem; }
+  .legend-item { display:inline-flex; align-items:center; gap:6px; }
+  .legend-shape { width:30px; height:18px; border:1.5px solid var(--accent); background:var(--surface); display:inline-block; }
+  .legend-shape.terminator { background:var(--accent); border-radius:999px; }
+  .legend-shape.io { transform:skewX(-16deg); }
+  .legend-shape.decision { width:18px; height:18px; background:#fff1d7; border-color:#e6c88e; transform:rotate(45deg); }
+
+  /* ---------- SVG canvas ---------- */
+  .diagram-wrap { width:100%; overflow-x:auto; }
+  svg.diagram { display:block; width:100%; height:auto; min-width:680px; }
+
+  .n-proc   { fill:var(--surface); stroke:var(--border); stroke-width:1.5; }
+  .n-io     { fill:var(--surface); stroke:var(--border); stroke-width:1.5; }
+  .n-term   { fill:var(--accent);  stroke:var(--accent); stroke-width:1.5; }
+  .n-dec    { fill:#fff1d7;         stroke:#e6c88e;      stroke-width:1.5; }
+  .n-err    { fill:var(--error);    stroke:#e5b7b3;      stroke-width:1.5; }
+  .n-band   { fill:rgba(20,125,104,.05); stroke:var(--accent); stroke-width:1.5; stroke-dasharray:5 4; }
+  .n-loop   { fill:rgba(255,255,255,.55); stroke:var(--accent); stroke-width:1.5; stroke-dasharray:6 5; }
+
+  text { font-family:"Trebuchet MS","Segoe UI",sans-serif; fill:var(--text); }
+  .t-title  { font-size:14px; font-weight:700; }
+  .t-sub    { font-size:11.5px; fill:var(--muted); }
+  .t-term   { fill:#fff; font-size:14px; font-weight:700; }
+  .t-dec    { fill:#785c2f; font-size:13px; font-weight:700; }
+  .t-err    { fill:var(--error-text); font-size:13px; font-weight:700; }
+  .t-band   { fill:var(--accent); font-size:12px; font-weight:800; letter-spacing:.12em; }
+
+  .edge { stroke:var(--line); stroke-width:2; fill:none; }
+  .edge-lbl-bg { fill:var(--bg); }
+  .edge-lbl { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-anchor:middle; }
+  .lbl-yes { fill:var(--yes); }
+  .lbl-no  { fill:var(--no); }
+
+  @media (max-width:800px){ header{display:block;} .back{display:inline-block;margin-top:15px;} .legend{justify-content:flex-start;} }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Number System Converter Flowchart</h1>
+    <p>Conversion &middot; Arithmetic &middot; Complements &amp; subtraction</p>
+  </div>
+  <a class="back" href="app.html">Back to App</a>
+</header>
+<main>
+  <div class="intro">A single top-to-bottom flow: the app validates input, normalizes the base, then runs three stages &mdash; conversion, arithmetic, and complement subtraction &mdash; before rendering output and looping back to wait for the next user action.</div>
+
+  <div class="legend" aria-label="Flowchart symbol legend">
+    <span class="legend-item"><i class="legend-shape terminator"></i>Terminator (Start / End)</span>
+    <span class="legend-item"><i class="legend-shape io"></i>Input / Output</span>
+    <span class="legend-item"><i class="legend-shape"></i>Process</span>
+    <span class="legend-item"><i class="legend-shape decision"></i>Decision</span>
+  </div>
+
+  <div class="diagram-wrap">
+  <!-- One central column (x=350). Every connector runs straight down the spine
+       or turns onto the single left-hand return rail (x=70). Nothing overlaps
+       a container; every line begins and ends on a shape edge. -->
+  <svg class="diagram" viewBox="0 0 700 1890" role="img" aria-label="Application flowchart">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="var(--line)"></path>
+      </marker>
+      <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(26,50,42,.16)"></feDropShadow>
+      </filter>
+    </defs>
+
+    <!-- ===================== EDGES (under nodes) ===================== -->
+    <!-- spine, straight segments between consecutive nodes -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 74 L350 100"></path>    <!-- start -> init -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 164 L350 190"></path>   <!-- init -> input -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 254 L350 280"></path>   <!-- input -> validate -->
+
+    <!-- validation split -->
+    <path class="edge" d="M350 400 L350 424"></path>
+    <path class="edge" d="M215 424 L490 424"></path>
+    <path class="edge" marker-end="url(#arrow)" d="M215 424 L215 448"></path>   <!-- NO -> error box top -->
+    <path class="edge" marker-end="url(#arrow)" d="M490 424 L490 452 L350 452 L350 512"></path> <!-- YES -> band 1 -->
+
+    <!-- SHARED RETURN RAIL at x=70: ONE vertical line from the lowest join (loop)
+         up to a SINGLE arrow into the Input Event node. Each source joins with a
+         short horizontal stub and a junction dot, so no parallel lines overlap. -->
+    <path class="edge" marker-end="url(#arrow)" d="M70 222 L202 222"></path>          <!-- rail top -> Input Event (single entry) -->
+    <path class="edge" d="M70 222 L70 1728"></path>                                    <!-- the one vertical rail -->
+    <path class="edge" d="M100 476 L70 476"></path>                                   <!-- error box LEFT edge -> rail -->
+    <circle cx="70" cy="476" r="3.5" fill="var(--line)"></circle>
+
+    <!-- Stage 1 band internal: convert -> render -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 606 L350 632"></path>
+    <!-- band1 -> band2 -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 726 L350 786"></path>
+
+    <!-- Stage 2 band internal -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 880 L350 906"></path>   <!-- build -> divzero -->
+    <path class="edge" d="M350 1026 L350 1050"></path>
+    <path class="edge" d="M258 1050 L463 1050"></path>
+    <path class="edge" marker-end="url(#arrow)" d="M258 1050 L258 1078"></path> <!-- to error -->
+    <path class="edge" marker-end="url(#arrow)" d="M463 1050 L463 1078"></path> <!-- to compute -->
+    <!-- div-zero error joins the shared rail -->
+    <path class="edge" d="M258 1126 L258 1150 L70 1150"></path>
+    <circle cx="70" cy="1150" r="3.5" fill="var(--line)"></circle>
+    <!-- compute -> render solution -->
+    <path class="edge" marker-end="url(#arrow)" d="M463 1126 L463 1160 L350 1160 L350 1194"></path>
+    <!-- band2 -> band3 -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 1290 L350 1348"></path>
+
+    <!-- Stage 3 band internal (linear) -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 1442 L350 1468"></path> <!-- complements -> select X/Y -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 1532 L350 1558"></path> <!-- select -> steps -->
+    <!-- band3 -> loop -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 1652 L350 1690"></path>
+
+    <!-- loop joins the shared rail (bottom of the rail) -->
+    <path class="edge" d="M200 1728 L70 1728"></path>
+    <circle cx="70" cy="1728" r="3.5" fill="var(--line)"></circle>
+    <!-- loop -> End (straight down the spine) -->
+    <path class="edge" marker-end="url(#arrow)" d="M350 1766 L350 1802"></path>
+
+    <!-- return-rail label chip -->
+    <rect class="edge-lbl-bg" x="34" y="700" width="72" height="34"></rect>
+    <text class="edge-lbl" x="70" y="714" fill="var(--accent)">RETURN</text>
+    <text class="edge-lbl" x="70" y="728" fill="var(--accent)">TO INPUT</text>
+
+    <!-- ===================== NODES ===================== -->
+    <!-- Start -->
+    <g filter="url(#sh)"><rect class="n-term" x="250" y="24" width="200" height="50" rx="25"></rect></g>
+    <text class="t-term" x="350" y="54" text-anchor="middle">Start: Open App</text>
+
+    <!-- Init -->
+    <g filter="url(#sh)"><rect class="n-proc" x="205" y="100" width="290" height="64" rx="4"></rect></g>
+    <text class="t-title" x="350" y="128" text-anchor="middle">Initialize 3+ Input Cards</text>
+    <text class="t-sub"   x="350" y="148" text-anchor="middle">Default DEC base</text>
+
+    <!-- Input Event (parallelogram) -->
+    <g filter="url(#sh)"><polygon class="n-io" points="226,190 494,190 470,254 202,254"></polygon></g>
+    <text class="t-title" x="348" y="216" text-anchor="middle">Input Event</text>
+    <text class="t-sub"   x="348" y="236" text-anchor="middle">Edit value, select base, add / remove</text>
+
+    <!-- Validation (diamond) -->
+    <g filter="url(#sh)"><polygon class="n-dec" points="350,280 470,340 350,400 230,340"></polygon></g>
+    <text class="t-dec" x="350" y="336" text-anchor="middle">Input valid</text>
+    <text class="t-dec" x="350" y="354" text-anchor="middle">for base?</text>
+
+    <!-- Error (validation) -- sits above Stage 1 with a clear gap; return exits its LEFT edge -->
+    <g filter="url(#sh)"><rect class="n-err" x="100" y="448" width="230" height="56" rx="4"></rect></g>
+    <text class="t-err" x="215" y="474" text-anchor="middle">Show Base Error &amp; Reset</text>
+    <text class="t-sub" x="215" y="493" text-anchor="middle">Clear results &amp; hidden outputs</text>
+
+    <!-- ========== STAGE 1 BAND ========== -->
+    <rect class="n-band" x="150" y="512" width="400" height="214" rx="8"></rect>
+    <text class="t-band" x="350" y="534" text-anchor="middle">STAGE 1 &middot; BASE NORMALIZE &amp; CONVERT</text>
+
+    <g filter="url(#sh)"><rect class="n-proc" x="200" y="548" width="300" height="58" rx="4"></rect></g>
+    <text class="t-title" x="350" y="574" text-anchor="middle">Normalize to BigInt Fraction</text>
+    <text class="t-sub"   x="350" y="594" text-anchor="middle">then convert to BIN / OCT / DEC / HEX</text>
+
+    <g filter="url(#sh)"><polygon class="n-io" points="228,632 500,632 476,696 204,696"></polygon></g>
+    <text class="t-title" x="352" y="668" text-anchor="middle">Render Conversion Previews</text>
+
+    <!-- ========== STAGE 2 BAND ========== -->
+    <rect class="n-band" x="150" y="786" width="400" height="484" rx="8"></rect>
+    <text class="t-band" x="350" y="808" text-anchor="middle">STAGE 2 &middot; EXPRESSION &amp; ARITHMETIC</text>
+
+    <g filter="url(#sh)"><polygon class="n-io" points="246,822 494,822 470,880 222,880"></polygon></g>
+    <text class="t-title" x="348" y="848" text-anchor="middle">Build Expression (a, b, c &hellip;)</text>
+    <text class="t-sub"   x="348" y="868" text-anchor="middle">operand + operator buttons</text>
+
+    <!-- divzero decision -->
+    <g filter="url(#sh)"><polygon class="n-dec" points="350,906 470,966 350,1026 230,966"></polygon></g>
+    <text class="t-dec" x="350" y="962" text-anchor="middle">Division</text>
+    <text class="t-dec" x="350" y="980" text-anchor="middle">by zero?</text>
+
+    <g filter="url(#sh)"><rect class="n-err" x="168" y="1078" width="180" height="48" rx="4"></rect></g>
+    <text class="t-err" x="258" y="1100" text-anchor="middle">Show "Undefined"</text>
+    <text class="t-err" x="258" y="1116" text-anchor="middle">Error</text>
+
+    <g filter="url(#sh)"><rect class="n-proc" x="388" y="1078" width="150" height="48" rx="4"></rect></g>
+    <text class="t-title" x="463" y="1100" text-anchor="middle">Compute</text>
+    <text class="t-title" x="463" y="1118" text-anchor="middle">PEMDAS</text>
+
+    <g filter="url(#sh)"><polygon class="n-io" points="234,1194 500,1194 476,1256 210,1256"></polygon></g>
+    <text class="t-title" x="352" y="1220" text-anchor="middle">Render Solution &amp; Result</text>
+    <text class="t-sub"   x="352" y="1240" text-anchor="middle">positional breakdown, all bases</text>
+
+    <!-- ========== STAGE 3 BAND ========== -->
+    <rect class="n-band" x="150" y="1348" width="400" height="304" rx="8"></rect>
+    <text class="t-band" x="350" y="1370" text-anchor="middle">STAGE 3 &middot; COMPLEMENTS &amp; SUBTRACTION</text>
+
+    <g filter="url(#sh)"><rect class="n-proc" x="200" y="1384" width="300" height="58" rx="4"></rect></g>
+    <text class="t-title" x="350" y="1410" text-anchor="middle">Compute (r&minus;1)'s &amp; r's Complements</text>
+    <text class="t-sub"   x="350" y="1430" text-anchor="middle">for non-negative inputs, chosen base</text>
+
+    <g filter="url(#sh)"><polygon class="n-io" points="226,1468 494,1468 470,1532 202,1532"></polygon></g>
+    <text class="t-title" x="348" y="1494" text-anchor="middle">Select Minuend X &amp; Subtrahend Y</text>
+    <text class="t-sub"   x="348" y="1514" text-anchor="middle">pad to fixed width</text>
+
+    <g filter="url(#sh)"><rect class="n-proc" x="200" y="1558" width="300" height="64" rx="4"></rect></g>
+    <text class="t-title" x="350" y="1586" text-anchor="middle">Subtraction Steps 1 &rarr; 2 &rarr; 3</text>
+    <text class="t-sub"   x="350" y="1606" text-anchor="middle">complement, add, handle end carry</text>
+
+    <!-- Loop -->
+    <g filter="url(#sh)"><rect class="n-loop" x="200" y="1690" width="300" height="76" rx="8"></rect></g>
+    <text class="t-title" x="350" y="1718" text-anchor="middle" fill="var(--accent)">Render Output &amp; Await Action</text>
+    <text class="t-sub"   x="350" y="1738" text-anchor="middle">edit inputs, copy result, toggle theme</text>
+    <text class="t-sub"   x="350" y="1755" text-anchor="middle">&#8617; loops back to Input Event</text>
+
+    <!-- End (bottom of the spine) -->
+    <g filter="url(#sh)"><rect class="n-term" x="230" y="1802" width="240" height="50" rx="25"></rect></g>
+    <text class="t-term" x="350" y="1832" text-anchor="middle">End: User Closes App</text>
+
+    <!-- ===================== EDGE LABELS ===================== -->
+    <rect class="edge-lbl-bg" x="164" y="416" width="34" height="16"></rect>
+    <text class="edge-lbl lbl-no"  x="181" y="428">NO</text>
+    <rect class="edge-lbl-bg" x="500" y="416" width="40" height="16"></rect>
+    <text class="edge-lbl lbl-yes" x="520" y="428">YES</text>
+
+    <rect class="edge-lbl-bg" x="238" y="1034" width="40" height="16"></rect>
+    <text class="edge-lbl lbl-no"  x="258" y="1046">YES</text>
+    <rect class="edge-lbl-bg" x="443" y="1034" width="40" height="16"></rect>
+    <text class="edge-lbl lbl-yes" x="463" y="1046">NO</text>
+  </svg>
+  </div>
+</main>
+</body>
+</html>
