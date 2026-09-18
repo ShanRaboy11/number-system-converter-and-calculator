@@ -1364,6 +1364,7 @@
     10: ["9's", "10's"],
     16: ["15's", "16's"]
   };
+  const COMPLEMENT_FRACTION_DIGITS = 5;
   let selectedComplementBase = 2;
 
   const OP_SYMBOL = { "+": "+", "-": "\u2212", "*": "\u00D7", "/": "\u00F7" };
@@ -1445,7 +1446,24 @@
     return value.toString(base).toUpperCase().padStart(width, "0");
   }
 
-  function complementSubtraction(a, b, base, width) {
+  function fixedPointParts(rational, base) {
+    const representation = rationalToBaseString(rational, base);
+    const unsigned = representation.startsWith("-") ? representation.slice(1) : representation;
+    const parts = unsigned.split(".");
+    return {
+      whole: parts[0] || "0",
+      fraction: (parts[1] || "").replace(/\.\.\.$/, "").slice(0, COMPLEMENT_FRACTION_DIGITS),
+      negative: representation.startsWith("-")
+    };
+  }
+
+  function fixedPointString(value, base, width, fractionWidth) {
+    const digits = bigintToBaseDigits(value, base, width);
+    if (fractionWidth === 0) return digits;
+    return digits.slice(0, -fractionWidth) + "." + digits.slice(-fractionWidth);
+  }
+
+  function complementSubtraction(a, b, base, width, fractionWidth) {
     const modulus = BigInt(base) ** BigInt(width);
     const oneComplement = modulus - 1n - b;
     const twoComplement = modulus - b;
@@ -1456,20 +1474,21 @@
     const twoHasCarry = twoSum >= modulus;
     const twoRaw = twoSum % modulus;
     const difference = a - b;
-    const aStr = bigintToBaseDigits(a, base, width);
-    const bStr = bigintToBaseDigits(b, base, width);
-    const compRMinus1 = bigintToBaseDigits(oneComplement, base, width);
-    const compR = bigintToBaseDigits(twoComplement, base, width);
-    const digitSubtractions = bStr.split("").map(function (digit) {
+    const aStr = fixedPointString(a, base, width, fractionWidth);
+    const bStr = fixedPointString(b, base, width, fractionWidth);
+    const compRMinus1 = fixedPointString(oneComplement, base, width, fractionWidth);
+    const compR = fixedPointString(twoComplement, base, width, fractionWidth);
+    const bDigits = bStr.replace(".", "");
+    const digitSubtractions = bDigits.split("").map(function (digit) {
       return (base - 1) + " - " + digit + " = " + DIGITS[(base - 1) - DIGITS.indexOf(digit)];
     });
 
     function signedOutput(raw, hasCarry, isOnesComplement) {
-      if (difference >= 0n) return bigintToBaseDigits(raw, base, width);
+      if (difference >= 0n) return fixedPointString(raw, base, width, fractionWidth);
       const magnitude = isOnesComplement && !hasCarry
         ? modulus - 1n - raw
         : modulus - raw;
-      return "-" + bigintToBaseDigits(magnitude, base, width);
+      return "-" + fixedPointString(magnitude, base, width, fractionWidth);
     }
 
     return {
@@ -1478,10 +1497,10 @@
       digitSubtractions: digitSubtractions,
       compRMinus1: compRMinus1,
       compR: compR,
-      rMinus1Sum: oneSum.toString(base).toUpperCase(),
+      rMinus1Sum: fixedPointString(oneSum, base, oneHasCarry ? width + 1 : width, fractionWidth),
       rMinus1HasCarry: oneHasCarry,
       rMinus1Final: signedOutput(oneRaw, oneHasCarry, true),
-      rSum: twoSum.toString(base).toUpperCase(),
+      rSum: fixedPointString(twoSum, base, twoHasCarry ? width + 1 : width, fractionWidth),
       rHasCarry: twoHasCarry,
       rFinal: signedOutput(twoRaw, twoHasCarry, false),
       difference: difference
@@ -1500,28 +1519,30 @@
     return '<div class="complement-line"><span class="complement-line-label">' + label + '</span><span class="complement-code' + (result ? ' complement-result' : '') + '">' + value + '</span></div>';
   }
 
-  function complementValueData(value, base, width) {
+  function complementValueData(value, base, width, fractionWidth) {
     const modulus = BigInt(base) ** BigInt(width);
     const diminished = modulus - 1n - value;
     const radix = modulus - value;
-    const valueStr = bigintToBaseDigits(value, base, width);
-    const diminishedStr = bigintToBaseDigits(diminished, base, width);
+    const valueStr = fixedPointString(value, base, width, fractionWidth);
+    const diminishedStr = fixedPointString(diminished, base, width, fractionWidth);
     return {
       valueStr: valueStr,
-      digitSubtractions: valueStr.split("").map(function (digit) {
+      digitSubtractions: valueStr.replace(".", "").split("").map(function (digit) {
         return (base - 1) + " - " + digit + " = " + DIGITS[(base - 1) - DIGITS.indexOf(digit)];
       }),
       diminishedStr: diminishedStr,
-      radixStr: bigintToBaseDigits(radix, base, width)
+      radixStr: fixedPointString(radix, base, width, fractionWidth)
     };
   }
 
   function renderInputComplements(operands, base) {
     const names = COMPLEMENT_NAMES[base];
     complementResults.innerHTML = operands.map(function (operand) {
-      const converted = baseStringToRational(rationalToBaseString({ numerator: operand.value, denominator: 1n }, base), base).numerator;
-      const width = Math.max(1, converted.toString(base).length);
-      const data = complementValueData(converted, base, width);
+      const parts = fixedPointParts(operand.rational, base);
+      const fractionWidth = parts.fraction.length;
+      const width = parts.whole.length + fractionWidth;
+      const converted = baseStringToRational(parts.whole + parts.fraction, base).numerator;
+      const data = complementValueData(converted, base, width, fractionWidth);
       const digitLines = data.digitSubtractions.map(function (line) {
         return '<div class="complement-code">' + line + '</div>';
       }).join("");
@@ -1584,12 +1605,12 @@
       if (raw === "") continue;
       const base = parseInt(card.querySelector(".segmented").dataset.base, 10);
       const validation = validateInput(raw, base);
-      if (!validation.valid || raw.includes(".") || raw.startsWith("-")) {
+      if (!validation.valid || raw.startsWith("-")) {
         return { error: validation.valid
-          ? "Complement operations require non-negative whole numbers in the active inputs."
+            ? "Complement operations require non-negative values in the active inputs."
           : "Input #" + (i + 1) + ": " + validation.message };
       }
-      operands.push({ value: baseStringToRational(raw, base).numerator, label: "Input #" + (i + 1), index: i });
+          operands.push({ rational: baseStringToRational(raw, base), label: "Input #" + (i + 1), index: i });
     }
     return { operands: operands };
   }
@@ -1621,10 +1642,17 @@
     }
     const allResults = {};
     COMPLEMENT_BASES.forEach(function (targetBase) {
-      const xInTarget = baseStringToRational(rationalToBaseString({ numerator: x.value, denominator: 1n }, targetBase), targetBase).numerator;
-      const yInTarget = baseStringToRational(rationalToBaseString({ numerator: y.value, denominator: 1n }, targetBase), targetBase).numerator;
-      const width = Math.max(1, xInTarget.toString(targetBase).length, yInTarget.toString(targetBase).length);
-      allResults[targetBase] = complementSubtraction(xInTarget, yInTarget, targetBase, width);
+      const xParts = fixedPointParts(x.rational, targetBase);
+      const yParts = fixedPointParts(y.rational, targetBase);
+      const fractionWidth = Math.max(xParts.fraction.length, yParts.fraction.length);
+      const xWhole = xParts.whole;
+      const yWhole = yParts.whole;
+      const xDigits = xWhole + xParts.fraction.padEnd(fractionWidth, "0");
+      const yDigits = yWhole + yParts.fraction.padEnd(fractionWidth, "0");
+      const width = Math.max(xWhole.length, yWhole.length) + fractionWidth;
+      const xInTarget = baseStringToRational(xDigits, targetBase).numerator;
+      const yInTarget = baseStringToRational(yDigits, targetBase).numerator;
+      allResults[targetBase] = complementSubtraction(xInTarget, yInTarget, targetBase, width, fractionWidth);
     });
     const selected = allResults[selectedComplementBase];
     renderComplementSteps(selected, selectedComplementBase, subtractionResults);
@@ -1646,8 +1674,8 @@
       complementResults.innerHTML = "";
       subtractionResults.innerHTML = "";
       complementContext.textContent = "";
-      complementError.textContent = "Enter a non-negative whole number in an input to view its complements.";
-      subtractionError.textContent = "Enter at least two non-negative whole numbers to subtract.";
+      complementError.textContent = "Enter a non-negative integer or fraction in an input to view its complements.";
+      subtractionError.textContent = "Enter at least two non-negative integers or fractions to subtract.";
       refreshSubtractionSelectors(operands);
       return;
     }
@@ -1657,7 +1685,7 @@
     refreshSubtractionSelectors(operands);
     if (operands.length < 2) {
       subtractionResults.innerHTML = "";
-      subtractionError.textContent = "Enter at least two non-negative whole numbers to subtract.";
+      subtractionError.textContent = "Enter at least two non-negative integers or fractions to subtract.";
       complementError.textContent = "";
       return;
     }
