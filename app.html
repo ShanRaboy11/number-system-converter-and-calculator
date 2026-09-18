@@ -772,6 +772,75 @@
     font-size: 0.78rem;
     margin: 0 0 14px;
   }
+  .complement-inputs { display: grid; gap: 12px; }
+  .complement-input-card {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .complement-input-card h4 {
+    color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1rem;
+    margin: 0 0 10px;
+  }
+  .complement-input-card h4 span { color: var(--accent); font-family: 'Consolas', 'Courier New', monospace; }
+  .complement-controls {
+    align-items: end;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0 0 14px;
+  }
+  .complement-control label {
+    color: var(--text-muted);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+  .complement-control select {
+    appearance: none;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    min-height: 38px;
+    padding: 8px 10px;
+    width: 100%;
+  }
+  .complement-control { min-width: 0; }
+  .complement-control select:hover { border-color: var(--accent); }
+  .complement-control select:focus { background: var(--accent-soft); border-color: var(--accent); outline: 2px solid var(--accent-soft-strong); }
+  .complement-inputs .complement-line-label { min-width: 150px; }
+  .complement-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .complement-method {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 12px;
+  }
+  .complement-method h5 {
+    color: var(--accent);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    margin: 0 0 9px;
+    text-transform: uppercase;
+  }
+  .complement-method .complement-line { display: block; }
+  .complement-method .complement-line-label { display: block; margin-bottom: 4px; min-width: 0; }
+  .complement-subtraction { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 20px; }
   .complement-steps { display: grid; gap: 12px; }
   .complement-step {
     background: var(--surface-alt);
@@ -833,6 +902,8 @@
     .op-grid { grid-template-columns: repeat(2, 1fr); }
     .complement-tabs { grid-template-columns: repeat(2, 1fr); }
     .complement-line-label { min-width: 100%; }
+    .complement-controls { grid-template-columns: 1fr; }
+    .complement-pair { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -925,11 +996,20 @@
 
   <section class="complement-card" aria-labelledby="complement-title">
     <div class="output-heading" id="complement-title">Complements &amp; Subtraction</div>
-    <p class="complement-intro">Uses the first two populated inputs as A &minus; B. Results use the widest required digit width in each number system; carries follow fixed-width complement arithmetic.</p>
+    <p class="complement-intro">View each active input's complements, then choose any two inputs for fixed-width subtraction.</p>
     <div class="complement-tabs" id="complementTabs" role="tablist" aria-label="Complement number systems"></div>
     <p class="complement-context" id="complementContext"></p>
-    <div class="complement-steps" id="complementResults" aria-live="polite"></div>
+    <div class="complement-inputs" id="complementResults" aria-live="polite"></div>
     <div class="complement-error" id="complementError" aria-live="polite"></div>
+    <div class="complement-subtraction">
+      <div class="output-heading">Interactive Complement Subtraction</div>
+      <div class="complement-controls">
+        <div class="complement-control"><label for="minuendSelect">Minuend X</label><select id="minuendSelect"></select></div>
+        <div class="complement-control"><label for="subtrahendSelect">Subtrahend Y</label><select id="subtrahendSelect"></select></div>
+      </div>
+      <div class="complement-steps" id="subtractionResults" aria-live="polite"></div>
+      <div class="complement-error" id="subtractionError" aria-live="polite"></div>
+    </div>
   </section>
 </main>
 
@@ -1273,6 +1353,10 @@
   const complementError = document.getElementById("complementError");
   const complementTabs = document.getElementById("complementTabs");
   const complementContext = document.getElementById("complementContext");
+  const minuendSelect = document.getElementById("minuendSelect");
+  const subtrahendSelect = document.getElementById("subtrahendSelect");
+  const subtractionResults = document.getElementById("subtractionResults");
+  const subtractionError = document.getElementById("subtractionError");
   const COMPLEMENT_BASES = [2, 8, 10, 16];
   const COMPLEMENT_NAMES = {
     2: ["1's", "2's"],
@@ -1416,7 +1500,49 @@
     return '<div class="complement-line"><span class="complement-line-label">' + label + '</span><span class="complement-code' + (result ? ' complement-result' : '') + '">' + value + '</span></div>';
   }
 
-  function renderComplementSteps(data, base) {
+  function complementValueData(value, base, width) {
+    const modulus = BigInt(base) ** BigInt(width);
+    const diminished = modulus - 1n - value;
+    const radix = modulus - value;
+    const valueStr = bigintToBaseDigits(value, base, width);
+    const diminishedStr = bigintToBaseDigits(diminished, base, width);
+    return {
+      valueStr: valueStr,
+      digitSubtractions: valueStr.split("").map(function (digit) {
+        return (base - 1) + " - " + digit + " = " + DIGITS[(base - 1) - DIGITS.indexOf(digit)];
+      }),
+      diminishedStr: diminishedStr,
+      radixStr: bigintToBaseDigits(radix, base, width)
+    };
+  }
+
+  function renderInputComplements(operands, base) {
+    const names = COMPLEMENT_NAMES[base];
+    complementResults.innerHTML = operands.map(function (operand) {
+      const converted = baseStringToRational(rationalToBaseString({ numerator: operand.value, denominator: 1n }, base), base).numerator;
+      const width = Math.max(1, converted.toString(base).length);
+      const data = complementValueData(converted, base, width);
+      const digitLines = data.digitSubtractions.map(function (line) {
+        return '<div class="complement-code">' + line + '</div>';
+      }).join("");
+      return '<article class="complement-input-card"><h4><span>' + operand.label + '</span> &middot; ' + BASE_INFO[base].name + '</h4>' +
+        complementLine("Value", data.valueStr) +
+        '<div class="complement-pair">' +
+          '<div class="complement-method"><h5>' + names[0] + ' complement</h5>' +
+            '<div class="complement-line"><span class="complement-line-label">Digit by digit</span><div>' + digitLines + '</div></div>' +
+            complementLine("Result", data.diminishedStr, true) +
+          '</div>' +
+          '<div class="complement-method"><h5>' + names[1] + ' complement</h5>' +
+            complementLine(names[0] + " complement", data.diminishedStr) +
+            complementLine("Add", "1") +
+            complementLine("Result", data.radixStr, true) +
+          '</div>' +
+        '</div>' +
+        '</article>';
+    }).join("");
+  }
+
+  function renderComplementSteps(data, base, target) {
     const names = COMPLEMENT_NAMES[base];
     const digitLines = data.digitSubtractions.map(function (line) {
       return '<div class="complement-code">' + line + '</div>';
@@ -1428,68 +1554,114 @@
       ? '<p class="complement-status carry">End Carry = 1. The carry bit is <strong>[Discarded]</strong>.</p>'
       : '<p class="complement-status negative">End Carry = 0. The result is negative; re-complement ' + data.rSum + ' to obtain magnitude ' + data.rFinal.replace("-", "") + '.</p>';
 
-    complementResults.innerHTML =
+    target.innerHTML =
       '<article class="complement-step"><h4><span>Step 1</span>Finding complements of B</h4>' +
-        complementLine("Padded B", data.bStr) +
+        complementLine("Padded Y", data.bStr) +
         '<div class="complement-line"><span class="complement-line-label">Digit by digit</span><div>' + digitLines + '</div></div>' +
         complementLine(names[0] + " complement", data.compRMinus1, true) +
         complementLine("+ 1", data.compR, true) +
       '</article>' +
       '<article class="complement-step"><h4><span>Step 2</span>Subtraction via ' + names[0] + ' complement</h4>' +
-        complementLine("A", data.aStr) +
+        complementLine("X", data.aStr) +
         complementLine("+ B" + "<sub>" + names[0] + "</sub>", data.compRMinus1) +
         complementLine("Raw sum", data.rMinus1Sum) + oneCarry +
-        complementLine("Final A - B", data.rMinus1Final, true) +
+        complementLine("Final X - Y", data.rMinus1Final, true) +
       '</article>' +
       '<article class="complement-step"><h4><span>Step 3</span>Subtraction via ' + names[1] + ' complement</h4>' +
-        complementLine("A", data.aStr) +
+        complementLine("X", data.aStr) +
         complementLine("+ B" + "<sub>" + names[1] + "</sub>", data.compR) +
         complementLine("Raw sum", data.rSum) + rCarry +
-        complementLine("Final A - B", data.rFinal, true) +
+        complementLine("Final X - Y", data.rFinal, true) +
       '</article>';
   }
 
-  function updateComplements() {
+  function collectComplementOperands() {
     const operands = [];
     const cards = container.querySelectorAll(".input-card");
-    for (let i = 0; i < cards.length && operands.length < 2; i++) {
+    for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
       const raw = card.querySelector(".value-input").value.trim();
       if (raw === "") continue;
       const base = parseInt(card.querySelector(".segmented").dataset.base, 10);
       const validation = validateInput(raw, base);
       if (!validation.valid || raw.includes(".") || raw.startsWith("-")) {
-        complementResults.innerHTML = "";
-        complementContext.textContent = "";
-        complementError.textContent = validation.valid
-          ? "Complement subtraction requires non-negative whole numbers in the first two populated inputs."
-          : "Input #" + (i + 1) + ": " + validation.message;
-        return;
+        return { error: validation.valid
+          ? "Complement operations require non-negative whole numbers in the active inputs."
+          : "Input #" + (i + 1) + ": " + validation.message };
       }
-      operands.push({ value: baseStringToRational(raw, base).numerator });
+      operands.push({ value: baseStringToRational(raw, base).numerator, label: "Input #" + (i + 1), index: i });
     }
+    return { operands: operands };
+  }
 
-    if (operands.length < 2) {
-      complementResults.innerHTML = "";
-      complementContext.textContent = "";
-      complementError.textContent = "Enter two non-negative whole numbers to calculate complements and A - B.";
+  function refreshSubtractionSelectors(operands) {
+    const previousX = minuendSelect.value;
+    const previousY = subtrahendSelect.value;
+    const options = operands.map(function (operand, index) {
+      return '<option value="' + index + '">' + operand.label + '</option>';
+    }).join("");
+    minuendSelect.innerHTML = options;
+    subtrahendSelect.innerHTML = options;
+    if (operands[previousX]) minuendSelect.value = previousX;
+    if (operands[previousY]) subtrahendSelect.value = previousY;
+    if (minuendSelect.value === subtrahendSelect.value && operands.length > 1) {
+      subtrahendSelect.value = String((parseInt(minuendSelect.value, 10) + 1) % operands.length);
+    }
+  }
+
+  function renderSubtraction(operands) {
+    const xIndex = parseInt(minuendSelect.value, 10);
+    const yIndex = parseInt(subtrahendSelect.value, 10);
+    const x = operands[xIndex];
+    const y = operands[yIndex];
+    if (!x || !y) {
+      subtractionResults.innerHTML = "";
+      subtractionError.textContent = "Select a minuend and subtrahend.";
       return;
     }
-
     const allResults = {};
     COMPLEMENT_BASES.forEach(function (targetBase) {
-      const a = operands[0].value;
-      const b = operands[1].value;
-      const aInTarget = baseStringToRational(rationalToBaseString({ numerator: a, denominator: 1n }, targetBase), targetBase).numerator;
-      const bInTarget = baseStringToRational(rationalToBaseString({ numerator: b, denominator: 1n }, targetBase), targetBase).numerator;
-      const width = Math.max(1, aInTarget.toString(targetBase).length, bInTarget.toString(targetBase).length);
-      allResults[targetBase] = complementSubtraction(aInTarget, bInTarget, targetBase, width);
+      const xInTarget = baseStringToRational(rationalToBaseString({ numerator: x.value, denominator: 1n }, targetBase), targetBase).numerator;
+      const yInTarget = baseStringToRational(rationalToBaseString({ numerator: y.value, denominator: 1n }, targetBase), targetBase).numerator;
+      const width = Math.max(1, xInTarget.toString(targetBase).length, yInTarget.toString(targetBase).length);
+      allResults[targetBase] = complementSubtraction(xInTarget, yInTarget, targetBase, width);
     });
     const selected = allResults[selectedComplementBase];
-    
+    renderComplementSteps(selected, selectedComplementBase, subtractionResults);
+    subtractionError.textContent = "";
+  }
+
+  function updateComplements() {
+    const collected = collectComplementOperands();
+    if (collected.error) {
+      complementResults.innerHTML = "";
+      subtractionResults.innerHTML = "";
+      complementContext.textContent = "";
+      complementError.textContent = collected.error;
+      subtractionError.textContent = collected.error;
+      return;
+    }
+    const operands = collected.operands;
+    if (operands.length === 0) {
+      complementResults.innerHTML = "";
+      subtractionResults.innerHTML = "";
+      complementContext.textContent = "";
+      complementError.textContent = "Enter a non-negative whole number in an input to view its complements.";
+      subtractionError.textContent = "Enter at least two non-negative whole numbers to subtract.";
+      refreshSubtractionSelectors(operands);
+      return;
+    }
     renderComplementTabs();
-    complementContext.textContent = "A = " + selected.aStr + ", B = " + selected.bStr;
-    renderComplementSteps(selected, selectedComplementBase);
+    complementContext.textContent = "Active inputs in " + BASE_INFO[selectedComplementBase].name + " (base " + selectedComplementBase + ")";
+    renderInputComplements(operands, selectedComplementBase);
+    refreshSubtractionSelectors(operands);
+    if (operands.length < 2) {
+      subtractionResults.innerHTML = "";
+      subtractionError.textContent = "Enter at least two non-negative whole numbers to subtract.";
+      complementError.textContent = "";
+      return;
+    }
+    renderSubtraction(operands);
     complementError.textContent = "";
   }
 
@@ -1498,6 +1670,15 @@
     if (!tab) return;
     selectedComplementBase = parseInt(tab.dataset.complementBase, 10);
     updateComplements();
+  });
+
+  minuendSelect.addEventListener("change", function () {
+    const collected = collectComplementOperands();
+    if (!collected.error) renderSubtraction(collected.operands);
+  });
+  subtrahendSelect.addEventListener("change", function () {
+    const collected = collectComplementOperands();
+    if (!collected.error) renderSubtraction(collected.operands);
   });
 
   // Gather every conversion input card that has a value; validate as we go.

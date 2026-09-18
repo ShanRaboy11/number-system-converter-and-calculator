@@ -223,7 +223,7 @@ The interface is contained in `app.html` and includes:
 - `Add Input`, `Remove`, and `Clear Values` controls.
 - A click-only expression builder with input-variable, operator, parenthesis, Backspace, and Clear buttons.
 - A result panel showing the arithmetic expression, a step-by-step solution table, and the result in all four bases.
-- A responsive complements and subtraction panel with Binary, Octal, Decimal, and Hexadecimal tabs; each tab shows three step-by-step cards for the correct complement pair and A - B.
+- A responsive complements and subtraction panel with Binary, Octal, Decimal, and Hexadecimal tabs; each tab shows every active input's complement pair and a separate X - Y subtraction walkthrough.
 
 ### Validation implementation
 
@@ -308,7 +308,7 @@ The step-by-step solution for each case shows the positional-notation breakdown 
 
 ### Complement and subtraction test cases
 
-The complement panel uses the first two populated inputs as A and B. Select a radix tab to see three cards: finding B's complements digit by digit, subtraction through the diminished-radix complement, and subtraction through the radix complement. It labels binary as 1's/2's, octal as 7's/8's, decimal as 9's/10's, and hexadecimal as 15's/16's. For `5` and `3` in decimal, the binary view uses width 3: `A = 101`, `B = 011`, 1's complement of B is `100`, and 2's complement of B is `101`. Both subtraction methods produce `010` (`2`) after carry handling.
+Select a radix tab to see each active input's diminished-radix and radix complements digit by digit. Then choose the minuend X and subtrahend Y in the interactive subtraction controls to see the diminished-radix and radix methods, including carry handling and negative re-complementing. It labels binary as 1's/2's, octal as 7's/8's, decimal as 9's/10's, and hexadecimal as 15's/16's.
 
 ## Sample Output
 
@@ -362,9 +362,10 @@ To use the arithmetic calculator:
 
 To use complements and complement subtraction:
 
-1. Enter two non-negative whole numbers in the first two populated input rows.
+1. Enter one or more non-negative whole numbers in the input rows.
 2. Select the source base for each input if needed.
-3. Read the radix-specific complements and both A - B results in every supported base.
+3. Choose a radix tab to inspect every active input's complements.
+4. Choose the minuend X and subtrahend Y to view both complement-based subtraction methods.
 
 ## Limitations and Notes
 
