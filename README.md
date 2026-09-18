@@ -394,7 +394,7 @@ Invalid examples include `10201` in Binary, `1G` in Hexadecimal, and `811.478` i
 | C4 | `X` = Input #2 (`5`), `Y` = Input #3 (`2`) | Decimal | Both subtraction methods calculate `5 - 2 = 3`. |
 | C5 | `X` = `2`, `Y` = `5` (selectors reversed) | Decimal | Both methods show a negative result obtained by re-complementing. |
 | C6 | `11`, `5`, `2` | Hexadecimal | Every active input shows 15's and 16's complements. |
-| C7 | any negative value | any | Complement output clears and a validation message is shown. |
+| C7 | invalid inputs | any | Complement output clears and a validation message is shown. |
 | C8 | `0.333333`, `0.1` | Decimal | The view uses `0.33333` (truncated to five digits); subtraction completes without a repeating-representation error. |
 
 ## Sample Outputs
