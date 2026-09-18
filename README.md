@@ -12,8 +12,8 @@ A browser-based number system converter and arithmetic calculator for working wi
 - A detailed step-by-step solution: a positional-notation breakdown of each conversion to decimal followed by the final calculation.
 - The arithmetic result is displayed in all four number systems.
 - Clear handling of invalid inputs and division by zero.
-- Calculate 1's and 2's complements for the first two populated inputs in binary, octal, decimal, and hexadecimal.
-- Perform fixed-width subtraction using both complements, including end-around carry for 1's-complement subtraction.
+- Calculate radix-specific complements for the first two populated inputs: 1's/2's in binary, 7's/8's in octal, 9's/10's in decimal, and 15's/16's in hexadecimal.
+- Perform fixed-width subtraction using each radix's complement pair, including end-around carry for the diminished-radix complement.
 
 ## System Requirements
 
@@ -223,7 +223,7 @@ The interface is contained in `app.html` and includes:
 - `Add Input`, `Remove`, and `Clear Values` controls.
 - A click-only expression builder with input-variable, operator, parenthesis, Backspace, and Clear buttons.
 - A result panel showing the arithmetic expression, a step-by-step solution table, and the result in all four bases.
-- A complements and subtraction panel showing 1's and 2's complements for A - B across all four bases.
+- A responsive complements and subtraction panel with Binary, Octal, Decimal, and Hexadecimal tabs; each tab shows three step-by-step cards for the correct complement pair and A - B.
 
 ### Validation implementation
 
@@ -308,7 +308,7 @@ The step-by-step solution for each case shows the positional-notation breakdown 
 
 ### Complement and subtraction test cases
 
-The complement panel uses the first two populated inputs as A and B. For `5` and `3` in decimal, the binary row uses width 3: `A = 101`, `B = 011`, 1's complement of B is `100`, and 2's complement of B is `101`. Both complement subtraction columns produce `010` (`2`). Reversing the inputs to `3` and `5` produces `-010` (`-2`) in the binary row and `-2` in the other rows.
+The complement panel uses the first two populated inputs as A and B. Select a radix tab to see three cards: finding B's complements digit by digit, subtraction through the diminished-radix complement, and subtraction through the radix complement. It labels binary as 1's/2's, octal as 7's/8's, decimal as 9's/10's, and hexadecimal as 15's/16's. For `5` and `3` in decimal, the binary view uses width 3: `A = 101`, `B = 011`, 1's complement of B is `100`, and 2's complement of B is `101`. Both subtraction methods produce `010` (`2`) after carry handling.
 
 ## Sample Output
 
@@ -364,7 +364,7 @@ To use complements and complement subtraction:
 
 1. Enter two non-negative whole numbers in the first two populated input rows.
 2. Select the source base for each input if needed.
-3. Read the 1's complement, 2's complement, and A - B results in every supported base.
+3. Read the radix-specific complements and both A - B results in every supported base.
 
 ## Limitations and Notes
 
