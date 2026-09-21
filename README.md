@@ -407,12 +407,6 @@ Existing converter samples:
 - [Invalid input](sample-outputs/invalid-input.png)
 - [Long fractional output](sample-outputs/long-fractional-output.png)
 
-The application flowchart is shown below. It covers input validation, number-system conversion, PEMDAS expression evaluation, and arithmetic error handling. The complement workflow is documented immediately after the image because the original submitted PNG predates the complement feature.
-
-![Number system converter flowchart](sample-outputs/Flowchart.png)
-
-The current complement branch follows the same flowchart rules: select a radix tab, display each active input's `(r-1)` and `r` complements, select Minuend `X` and Subtrahend `Y`, align fixed-point digits to five fractional places, then process diminished-radix and radix subtraction with carry or negative re-complement handling. Standard symbols are used conceptually: terminators for start/end, parallelograms for input/output, rectangles for processes, and diamonds for decisions.
-
 ## How to Run
 
 1. Open the project folder.
